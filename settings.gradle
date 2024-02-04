@@ -15,4 +15,4 @@ dependencyResolutionManagement {
 rootProject.name = "SLAM3D-Video"
 include ':app'
 include ':orb3slam'
-include ':opencv'
+include ':sdk'

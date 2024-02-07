@@ -2,17 +2,38 @@ package com.mag.slam3dvideo
 
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
+import android.util.Log
+import com.mag.slam3dvideo.orb3.ORB3
+import com.mag.slam3dvideo.utils.AssetUtils
+data class AssetFiles(val vocabFile:String, val configFile:String)
 
 class MainActivity : AppCompatActivity() {
-    init {
-        System.loadLibrary("orbvideoslam")
-    }
+    private val TAG: String? = "awdawd"
+
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
-        nativeTest();
+        val files = saveAssetsToLocalFiles()
+
+        val orb = ORB3(files.vocabFile,files.configFile);
+        Log.d(TAG,orb.ptr.toString())
     }
 
-    external fun nativeTest();
+    fun saveAssetsToLocalFiles() : AssetFiles {
+        val vocabAssetName = "Vocabulary/ORBvoc.txt"
+        val cameraParamsAssetName = "Calibration/PARAconfig.yaml"
+        val assets = getAssets();
+        val vocabInputStream = assets.open(vocabAssetName)
+        val calibInputStream = assets.open(cameraParamsAssetName)
+        val baseDir = filesDir.toString()
+        val outVocab = baseDir + "/voc.txt.tar"
+        val outConfig = baseDir + "/config.yaml"
+        AssetUtils.createFileFromInputStream(filesDir.toString() + "/voc.txt.tar",vocabInputStream)
+        AssetUtils.createFileFromInputStream(filesDir.toString() + "/config.yaml",calibInputStream)
+
+        return AssetFiles(outVocab,outConfig)
+    }
+
 }

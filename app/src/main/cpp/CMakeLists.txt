@@ -9,16 +9,13 @@ get_property(dirs
         TARGET ORB_SLAM3
         PROPERTY INCLUDE_DIRECTORIES)
 
-MESSAGE("AAAAAAAAAAA ${dirs}")
 include_directories(
         include
         thirdparty/orb3slam/include
         ${dirs}
 )
-
-add_library(${PROJECT_NAME} SHARED
-        src/jni/test.cpp
-        )
+file(GLOB SOURCE_FILES src/jni/*.cpp)
+add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES})
 
 target_link_libraries(${PROJECT_NAME}
         ORB_SLAM3

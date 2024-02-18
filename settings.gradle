@@ -11,8 +11,9 @@ dependencyResolutionManagement {
         google()
         mavenCentral()
     }
+
 }
 rootProject.name = "SLAM3D-Video"
 include ':app'
-//include ':orb3slam'
 include ':sdk'
+//include ':orb3slam'

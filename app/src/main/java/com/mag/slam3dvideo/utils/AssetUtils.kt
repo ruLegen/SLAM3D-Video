@@ -1,6 +1,12 @@
 package com.mag.slam3dvideo.utils
 
+import android.Manifest
+import android.app.Activity
+import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
+import androidx.annotation.RequiresApi
+import androidx.core.app.ActivityCompat
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
@@ -12,10 +18,49 @@ import kotlin.experimental.and
 import kotlin.io.path.Path
 import kotlin.io.path.exists
 
+
 class AssetUtils {
     companion object{
         private val TAG :String="AssetUtils"
+        var storage_permissions = arrayOf<String>(
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            Manifest.permission.READ_EXTERNAL_STORAGE
+        )
 
+        @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
+        var storage_permissions_33 = arrayOf<String>(
+            Manifest.permission.READ_MEDIA_IMAGES,
+            Manifest.permission.READ_MEDIA_AUDIO,
+            Manifest.permission.READ_MEDIA_VIDEO
+        )
+
+        fun permissions(): Array<String> {
+            val p: Array<String>
+            p = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                storage_permissions_33
+            } else {
+                storage_permissions
+            }
+            return p
+        }
+
+        fun hasAllMediaPermissions(activity:Activity):Boolean{
+            return permissions().all {
+                ActivityCompat.checkSelfPermission(activity, it) == PackageManager.PERMISSION_GRANTED
+            }
+
+        }
+        /**
+         * @return false if request didn't happened
+         */
+        fun askMediaPermissions(activity: Activity, code:Int): Boolean{
+            val permissions = permissions()
+            if(hasAllMediaPermissions(activity))
+                return  false;
+
+            ActivityCompat.requestPermissions(activity,permissions(),code);
+            return  true
+        }
         fun fileToMD5(inputStream: InputStream): String? {
             return try {
                 val buffer = ByteArray(10240)

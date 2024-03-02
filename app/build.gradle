@@ -1,6 +1,8 @@
 plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
+    id 'kotlin-kapt'
+
 //    id 'filament-tools-plugin'
 }
 
@@ -37,6 +39,10 @@ android {
             path "src/main/cpp/CMakeLists.txt"
             version "3.22.1"
         }
+    }
+    buildFeatures {
+        viewBinding true
+        dataBinding true
     }
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_1_8

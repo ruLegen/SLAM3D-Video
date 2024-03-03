@@ -1,23 +1,56 @@
 package com.mag.slam3dvideo.videmodels
 
 import android.app.Application
+import android.net.Uri
+import android.util.Log
 import android.view.View
 import android.widget.Button
 import androidx.databinding.Bindable
 import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.LifecycleObserver
 import com.mag.slam3dvideo.BR
+import com.mag.slam3dvideo.ui.components.VideoTimelineView
 
 class VideoViewerViewModel(application: Application) : ObservableViewModel(application){
-    @get:Bindable
-    var test: Int = 10
-        set(value) {
-            field = value
-            notifyChange(BR.test)
+    var fileSelected:((file:String?) -> Unit)? = null
+
+    var mediaSelectClicked: (() -> Unit)? = null
+
+    var file:String? = "/storage/emulated/0/DCIM/Camera/PXL_20230318_132255477.mp4"
+    var timeLineDelegate: VideoTimelineView.VideoTimelineViewDelegate? = null
+    var progress: Float = 0f
+
+    init {
+        timeLineDelegate = object : VideoTimelineView.VideoTimelineViewDelegate{
+            override fun onLeftProgressChanged(view: VideoTimelineView, progress: Float) {
+            }
+
+            override fun onRightProgressChanged(view: VideoTimelineView, progress: Float) {
+            }
+
+            override fun onSeek(view: VideoTimelineView, p: Float) {
+                progress = p
+                val totalFrames = view.videoFrameCount
+                val fps = view.videoCaptureFps
+                val currentFrame = ( totalFrames*progress).toInt()
+                Log.d("progress",currentFrame.toString())
+            }
+
+            override fun didStartDragging() {
+            }
+
+            override fun didStopDragging() {
+            }
         }
 
+    }
 
 
     fun clicked(view:View){
-        test++
+        mediaSelectClicked?.invoke()
+    }
+
+    fun onMediaSelected(path: String?){
+        file = path
     }
 }

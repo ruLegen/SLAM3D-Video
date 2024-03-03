@@ -8,22 +8,33 @@ import android.graphics.Color
 import android.graphics.Paint
 import android.graphics.Path
 import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
 import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.media.MediaMetadataRetriever
 import android.os.AsyncTask
 import android.os.Build
+import android.os.Handler
+import android.os.Looper
 import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.AttributeSet
 import android.util.Log
+import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.View
+import androidx.annotation.MainThread
 import androidx.annotation.RequiresApi
+import androidx.core.content.ContextCompat
+import androidx.core.math.MathUtils
+import com.mag.slam3dvideo.R
 import com.mag.slam3dvideo.utils.AndroidUtilities
-import java.io.File
+import com.mag.slam3dvideo.utils.CancellationToken
+import com.mag.slam3dvideo.utils.CancellationTokenSource
+import com.mag.slam3dvideo.utils.TaskRunner
+import com.mag.slam3dvideo.utils.Theme
 import java.io.FileInputStream
 
 
@@ -32,18 +43,28 @@ class VideoTimelineView
     context: Context,
     attrs: AttributeSet? = null,
     defStyle: Int = 0) : View(context,attrs,defStyle) {
-    private var videoLength: Long = 0
+    private val timeLineTopOffset: Int
+//       get() = measuredHeight - AndroidUtilities.dp(32) shr 1
+        get() = measuredHeight
+
     var leftProgress = 0f
         private set
     var rightProgress = 1f
         private set
+    var progress = 0f
+        set(value){
+            field = MathUtils.clamp(value,0f,1f)
+            invalidate()
+        }
+
     private val paint2 = Paint()
     private val backgroundGrayPaint = Paint()
     private var pressedLeft = false
     private var pressedRight = false
+    private var pressedProgress = false
     private var pressDx = 0f
     private var mediaMetadataRetriever: MediaMetadataRetriever? = null
-    private var delegate: VideoTimelineView.VideoTimelineViewDelegate? = null
+    private var delegate: VideoTimelineViewDelegate? = null
     private val frames = ArrayList<Bitmap>()
     private var currentTask: AsyncTask<Int?, Int?, Bitmap?>? = null
     private var frameTimeOffset: Long = 0
@@ -59,37 +80,57 @@ class VideoTimelineView
     private var roundCornerBitmap: Bitmap? = null
     private val keyframes = ArrayList<Bitmap>()
     private var framesLoaded = false
-    private var timeHintView: VideoTimelineView.TimeHintView? = null
+    private var scalePreviewFrames = true
+    private var timeHintView: TimeHintView? = null
+    private val bitmapTaskRunner: TaskRunner = TaskRunner(Handler(Looper.getMainLooper()))
+    private var bitmapCancelTokenSource = CancellationTokenSource()
+
+    var videoFrameCount: Long = 0
+        private set
+    var videoCaptureFps: Float = 0f
+        private set
+    var videoLength: Long = 0
+        private set
+
     var path: Path? = null
     var thumbPaint = Paint(Paint.ANTI_ALIAS_FLAG)
-    var useClip = false
+    var progressPaint = Paint(Paint.ANTI_ALIAS_FLAG)
+    var useClip = true
     fun setKeyframes(keyframes: ArrayList<Bitmap>?) {
         this.keyframes.clear()
         this.keyframes.addAll(keyframes!!)
     }
 
     interface VideoTimelineViewDelegate {
-        fun onLeftProgressChanged(progress: Float)
-        fun onRightProgressChanged(progress: Float)
+        fun onLeftProgressChanged(view:VideoTimelineView,progress: Float)
+        fun onRightProgressChanged(view:VideoTimelineView,progress: Float)
+        fun onSeek(view:VideoTimelineView,progress: Float)
         fun didStartDragging()
         fun didStopDragging()
     }
 
     init {
         paint2.color = 0x7f000000
-        thumbPaint.color = Color.WHITE
-        thumbPaint.strokeWidth = AndroidUtilities.dpf2(2f)
-        thumbPaint.style = Paint.Style.STROKE
-        thumbPaint.strokeCap = Paint.Cap.ROUND
+        thumbPaint.apply {
+            color = Color.WHITE
+            strokeWidth = AndroidUtilities.dpf2(2f)
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+        }
+        progressPaint.apply {
+            strokeWidth = AndroidUtilities.dpf2(4f)
+            color = Color.CYAN
+            style = Paint.Style.STROKE
+            strokeCap = Paint.Cap.ROUND
+
+        }
         updateColors()
     }
 
     fun updateColors() {
 //        backgroundGrayPaint.color = Theme.getColor(Theme.key_windowBackgroundGray)
-//        roundCornersSize = 0
-//        if (timeHintView != null) {
-//            timeHintView.updateColors()
-//        }
+        roundCornersSize = 0
+        timeHintView?.updateColors()
     }
 
     fun setMinProgressDiff(value: Float) {
@@ -128,24 +169,24 @@ class VideoTimelineView
         var startX: Int = (width * leftProgress).toInt() + AndroidUtilities.dp(12)
         var endX: Int = (width * rightProgress).toInt() + AndroidUtilities.dp(12)
         if (event.action == MotionEvent.ACTION_DOWN) {
-            getParent().requestDisallowInterceptTouchEvent(true)
+            parent.requestDisallowInterceptTouchEvent(true)
             if (mediaMetadataRetriever == null) {
                 return false
             }
             val additionWidth: Int = AndroidUtilities.dp(24)
-            if (startX - additionWidth <= x && x <= startX + additionWidth && y >= 0 && y <= getMeasuredHeight()) {
+            if (startX - additionWidth <= x && x <= startX + additionWidth && y >= 0 && y <= measuredHeight) {
                 delegate?.didStartDragging()
                 pressedLeft = true
-                pressDx = (x - startX).toInt().toFloat()
+                pressDx = x - startX
                 timeHintView?.setTime((videoLength / 1000f * leftProgress).toInt())
                 timeHintView?.setCx((startX + getLeft() + AndroidUtilities.dp(4f)).toFloat())
                 timeHintView?.show(true)
                 invalidate()
                 return true
-            } else if (endX - additionWidth <= x && x <= endX + additionWidth && y >= 0 && y <= getMeasuredHeight()) {
+            } else if (endX - additionWidth <= x && x <= endX + additionWidth && y >= 0 && y <= measuredHeight) {
                 delegate?.didStartDragging()
                 pressedRight = true
-                pressDx = (x - endX).toInt().toFloat()
+                pressDx = x - endX
                 timeHintView?.setTime((videoLength / 1000f * rightProgress).toInt())
                 timeHintView?.setCx(((endX + getLeft() - AndroidUtilities.dp(4f)).toFloat()))
                 timeHintView?.show(true)
@@ -153,6 +194,9 @@ class VideoTimelineView
                 return true
             } else {
                 timeHintView?.show(false)
+                pressedProgress = true
+                invalidate()
+                return  true
             }
         } else if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
             if (pressedLeft) {
@@ -164,6 +208,13 @@ class VideoTimelineView
             } else if (pressedRight) {
                 delegate?.didStopDragging()
                 pressedRight = false
+                invalidate()
+                timeHintView?.show(false)
+                return true
+            }else if(pressedProgress)
+            {
+                delegate?.didStopDragging()
+                pressedProgress = false
                 invalidate()
                 timeHintView?.show(false)
                 return true
@@ -192,7 +243,7 @@ class VideoTimelineView
                 )
                 timeHintView?.setTime((videoLength / 1000f * leftProgress).toInt())
                 timeHintView?.show(true)
-                delegate?.onLeftProgressChanged(leftProgress)
+                delegate?.onLeftProgressChanged(this,leftProgress)
                 invalidate()
                 return true
             } else if (pressedRight) {
@@ -218,9 +269,22 @@ class VideoTimelineView
                 )
                 timeHintView?.show(true)
                 timeHintView?.setTime((videoLength / 1000f * rightProgress).toInt())
-                delegate?.onRightProgressChanged(rightProgress)
+                delegate?.onRightProgressChanged(this,rightProgress)
                 invalidate()
                 return true
+            }else if(pressedProgress){
+                progress = x/ width.toFloat()
+                progress = MathUtils.clamp(progress,0f,1f)
+                timeHintView?.setCx(
+                    width * progress + AndroidUtilities.dpf2(12f) + left + AndroidUtilities.dp(
+                        4f
+                    )
+                )
+                timeHintView?.setTime((videoLength / 1000f * progress).toInt())
+                timeHintView?.show(true)
+                delegate?.onSeek(this,progress)
+                invalidate()
+                return  true
             }
         }
         return false
@@ -232,13 +296,12 @@ class VideoTimelineView
         leftProgress = 0.0f
         rightProgress = 1.0f
         try {
-            val resolver = context.contentResolver
-            val filePath = "path/file.mp3"
             val inputStream = FileInputStream(path)
             mediaMetadataRetriever!!.setDataSource(inputStream.fd)
-            val duration =
-                mediaMetadataRetriever!!.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+            val duration = mediaMetadataRetriever!!.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
             videoLength = duration!!.toLong()
+            videoCaptureFps = mediaMetadataRetriever!!.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)?.toFloat() ?: 0f
+            videoFrameCount = mediaMetadataRetriever!!.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT)?.toLong() ?: -1
         } catch (e: Exception) {
             Log.e("VIDEOTIMELINE", e.message.toString());
            // FileLog.e(e)
@@ -255,6 +318,10 @@ class VideoTimelineView
             return
         }
         if (frameNum == 0) {
+            bitmapCancelTokenSource?.cancel()
+            bitmapCancelTokenSource = CancellationTokenSource()
+            val token = bitmapCancelTokenSource.token
+
             if (isRoundFrames) {
                 frameWidth = AndroidUtilities.dp(56)
                 frameHeight = frameWidth
@@ -264,7 +331,7 @@ class VideoTimelineView
                         .toInt()
                 )
             } else {
-                frameHeight = AndroidUtilities.dp(40)
+                frameHeight = AndroidUtilities.dp(120)
                 framesToLoad =
                     Math.max(1, (getMeasuredWidth() - AndroidUtilities.dp(16)) / frameHeight)
                 frameWidth =
@@ -337,6 +404,11 @@ class VideoTimelineView
         currentTask?.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, frameNum, null, null)
     }
 
+    private fun loadFrames(maxFrameCount:Int){
+        if (maxFrameCount == 0)
+            return
+
+    }
     @JvmOverloads
     fun destroy(recycle: Boolean = true) {
         synchronized(VideoTimelineView.Companion.sync) {
@@ -353,16 +425,12 @@ class VideoTimelineView
             if (!keyframes.isEmpty()) {
                 for (a in keyframes.indices) {
                     val bitmap = keyframes[a]
-                    if (bitmap != null) {
-                        bitmap.recycle()
-                    }
+                        bitmap?.recycle()
                 }
             } else {
                 for (a in frames.indices) {
                     val bitmap = frames[a]
-                    if (bitmap != null) {
-                        bitmap.recycle()
-                    }
+                        bitmap?.recycle()
                 }
             }
         }
@@ -375,19 +443,17 @@ class VideoTimelineView
     }
 
     fun clearFrames() {
-        if (keyframes.isEmpty()) {
-            for (a in frames.indices) {
-                val bitmap = frames[a]
-                if (bitmap != null) {
-                    bitmap.recycle()
-                }
-            }
-        }
-        frames.clear()
         if (currentTask != null) {
             currentTask!!.cancel(true)
             currentTask = null
         }
+        if (keyframes.isEmpty()) {
+            for (a in frames.indices) {
+                val bitmap = frames[a]
+                bitmap?.recycle()
+            }
+        }
+        frames.clear()
         invalidate()
     }
 
@@ -398,12 +464,12 @@ class VideoTimelineView
                 path = Path()
             }
             path!!.rewind()
-            val topOffset: Int = getMeasuredHeight() - AndroidUtilities.dp(32) shr 1
+            val topOffset = timeLineTopOffset
             AndroidUtilities.rectTmp.set(
                 0F,
                 topOffset.toFloat(),
-                getMeasuredWidth().toFloat(),
-                (getMeasuredHeight() - topOffset).toFloat()
+                measuredWidth.toFloat(),
+                (measuredHeight - topOffset).toFloat()
             )
             path!!.addRoundRect(
                 AndroidUtilities.rectTmp,
@@ -415,17 +481,18 @@ class VideoTimelineView
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)
-    protected override fun onDraw(canvas: Canvas) {
+    override fun onDraw(canvas: Canvas) {
         if (useClip) {
             canvas.save()
             if (path != null) {
                 canvas.clipPath(path!!)
             }
         }
-        val width: Int = getMeasuredWidth() - AndroidUtilities.dp(24)
+        val width: Int = measuredWidth - AndroidUtilities.dp(24)
         val startX: Int = (width * leftProgress).toInt() + AndroidUtilities.dp(12)
         val endX: Int = (width * rightProgress).toInt() + AndroidUtilities.dp(12)
-        val topOffset: Int = getMeasuredHeight() - AndroidUtilities.dp(32) shr 1
+        val progressX: Int = (width * progress).toInt() + AndroidUtilities.dp(12)
+        val topOffset: Int = timeLineTopOffset
         if (frames.isEmpty() && currentTask == null) {
             reloadFrames(0)
         }
@@ -434,22 +501,25 @@ class VideoTimelineView
                 canvas.drawRect(
                     0f,
                     topOffset.toFloat(),
-                    getMeasuredWidth().toFloat(),
-                    (getMeasuredHeight() - topOffset).toFloat(),
-                    backgroundGrayPaint
+                   measuredWidth.toFloat(),
+                   (measuredHeight - topOffset).toFloat(),
+                   backgroundGrayPaint
                 )
             }
             var offset = 0
             for (a in frames.indices) {
                 val bitmap = frames[a]
-                if (bitmap != null && !bitmap.isRecycled) {
+                if (!bitmap.isRecycled) {
                     val x = offset * if (isRoundFrames) frameWidth / 2 else frameWidth
                     if (isRoundFrames) {
                         rect2!![x, topOffset, x + AndroidUtilities.dp(28)] =
                             topOffset + AndroidUtilities.dp(32)
                         canvas.drawBitmap(bitmap, rect1, rect2!!, null)
                     } else {
-                        canvas.drawBitmap(bitmap, x.toFloat(), topOffset.toFloat(), null)
+                        if(scalePreviewFrames)
+                            canvas.drawBitmap(bitmap, null, Rect(x,0,x+frameWidth,topOffset), null)
+                        else
+                            canvas.drawBitmap(bitmap, x.toFloat(), measuredHeight-topOffset.toFloat(), null)
                     }
                 }
                 offset++
@@ -464,42 +534,42 @@ class VideoTimelineView
             0f,
             topOffset.toFloat(),
             startX.toFloat(),
-            (getMeasuredHeight() - topOffset).toFloat(),
+            (measuredHeight - topOffset).toFloat(),
             paint2
         )
         canvas.drawRect(
             endX.toFloat(),
             topOffset.toFloat(),
-            getMeasuredWidth().toFloat(),
-            (getMeasuredHeight() - topOffset).toFloat(),
+            measuredWidth.toFloat(),
+            (measuredHeight - topOffset).toFloat(),
             paint2
         )
-        canvas.drawLine(
-            (startX - AndroidUtilities.dp(4)).toFloat(),
-            (topOffset + AndroidUtilities.dp(10)).toFloat(),
-            (startX - AndroidUtilities.dp(4)).toFloat(),
-            (getMeasuredHeight() - AndroidUtilities.dp(10) - topOffset).toFloat(),
-            thumbPaint
-        )
-        canvas.drawLine(
-            (endX + AndroidUtilities.dp(4)).toFloat(),
-            (topOffset + AndroidUtilities.dp(10)).toFloat(),
-            (endX + AndroidUtilities.dp(4)).toFloat(),
-            (getMeasuredHeight() - AndroidUtilities.dp(10) - topOffset).toFloat(),
-            thumbPaint
-        )
+        drawTimeLineVerticalLine(canvas,startX,topOffset,thumbPaint)
+        drawTimeLineVerticalLine(canvas,endX,topOffset,thumbPaint)
+        drawTimeLineVerticalLine(canvas,progressX,topOffset,progressPaint)
+
         if (useClip) {
             canvas.restore()
         } else {
             drawCorners(
                 canvas,
-                getMeasuredHeight() - topOffset * 2,
-                getMeasuredWidth(),
+                measuredHeight - topOffset * 2,
+                measuredWidth,
                 0,
                 topOffset
             )
         }
+
     }
+        fun drawTimeLineVerticalLine(canvas:Canvas, x:Int, height:Int,paint:Paint){
+            canvas.drawLine(
+                (x + AndroidUtilities.dp(4)).toFloat(),
+                (height + AndroidUtilities.dp(10)).toFloat(),
+                (x + AndroidUtilities.dp(4)).toFloat(),
+                (measuredHeight - AndroidUtilities.dp(10) - height).toFloat(),
+                paint
+            )
+        }
 
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun drawCorners(canvas: Canvas, height: Int, width: Int, left: Int, top: Int) {
@@ -557,131 +627,137 @@ class VideoTimelineView
         canvas.restore()
     }
 
-    fun setTimeHintView(timeHintView: VideoTimelineView.TimeHintView?) {
+    fun setTimeHintView(timeHintView: TimeHintView?) {
         this.timeHintView = timeHintView
     }
 
-    class TimeHintView(context: Context?) : View(context) {
-        private lateinit var tooltipBackground: Drawable
-        private var tooltipBackgroundArrow: Drawable? = null
-        private var tooltipLayout: StaticLayout? = null
-        private val tooltipPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
-        private var lastTime: Long = -1
-        private val tooltipAlpha = 0f
-        private val showTooltip = false
-        private val showTooltipStartTime: Long = 0
-        private var cx = 0f
-        private var scale = 0f
-        private var show = false
-
-        init {
-            tooltipPaint.textSize = AndroidUtilities.dp(14f).toFloat()
-//            tooltipBackgroundArrow = ContextCompat.getDrawable(context!!, R.drawable.tooltip_arrow)
-//            tooltipBackground = Theme.createRoundRectDrawable(
-//                AndroidUtilities.dp(5), Theme.getColor(
-//                    Theme.key_chat_gifSaveHintBackground
-//                )
-////            )
-            updateColors()
-            setTime(0)
-        }
-
-        fun setTime(timeInSeconds: Int) {
-            if (timeInSeconds.toLong() != lastTime) {
-                lastTime = timeInSeconds.toLong()
-                val s: String = AndroidUtilities.formatShortDuration(timeInSeconds)
-                tooltipLayout = StaticLayout(
-                    s,
-                    tooltipPaint,
-                    tooltipPaint.measureText(s).toInt(),
-                    Layout.Alignment.ALIGN_NORMAL,
-                    1.0f,
-                    0.0f,
-                    true
-                )
-            }
-        }
-
-        protected override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
-            super.onMeasure(
-                widthMeasureSpec, MeasureSpec.makeMeasureSpec(
-                    tooltipLayout!!.height + AndroidUtilities.dp(4) + tooltipBackgroundArrow!!.intrinsicHeight,
-                    MeasureSpec.EXACTLY
-                )
-            )
-        }
-
-        protected override fun onDraw(canvas: Canvas) {
-            if (tooltipLayout == null) {
-                return
-            }
-            if (show) {
-                if (scale != 1f) {
-                    scale += 0.12f
-                    if (scale > 1f) scale = 1f
-                    invalidate()
-                }
-            } else {
-                if (scale != 0f) {
-                    scale -= 0.12f
-                    if (scale < 0f) scale = 0f
-                    invalidate()
-                }
-                if (scale == 0f) {
-                    return
-                }
-            }
-            val alpha = (255 * if (scale > 0.5f) 1f else scale / 0.5f).toInt()
-            canvas.save()
-            canvas.scale(scale, scale, cx, getMeasuredHeight().toFloat())
-            canvas.translate(cx - tooltipLayout!!.width / 2f, 0f)
-            tooltipBackground.setBounds(
-                -AndroidUtilities.dp(8),
-                0,
-                tooltipLayout!!.width + AndroidUtilities.dp(8),
-                (tooltipLayout!!.height + AndroidUtilities.dpf2(4f)) as Int
-            )
-            tooltipBackgroundArrow!!.setBounds(
-                tooltipLayout!!.width / 2 - (tooltipBackgroundArrow?.intrinsicWidth?.div(2) ?: 0),
-                (tooltipLayout!!.height + AndroidUtilities.dpf2(4f)) as Int,
-                tooltipLayout!!.width / 2 + (tooltipBackgroundArrow?.intrinsicWidth?.div(2) ?: 0),
-                (tooltipLayout!!.height + AndroidUtilities.dpf2(4f)) as Int + (tooltipBackgroundArrow?.intrinsicHeight ?:0)
-            )
-            tooltipBackgroundArrow?.alpha = alpha
-            tooltipBackground.alpha = alpha
-            tooltipPaint.alpha = alpha
-            tooltipBackgroundArrow?.draw(canvas)
-            tooltipBackground.draw(canvas)
-            canvas.translate(0f, AndroidUtilities.dpf2(1f))
-            tooltipLayout!!.draw(canvas)
-            canvas.restore()
-        }
-
-        fun updateColors() {
-//            tooltipPaint.color = Theme.getColor(Theme.key_chat_gifSaveHintText)
-//            tooltipBackground = Theme.createRoundRectDrawable(
-//                AndroidUtilities.dp(5), Theme.getColor(
-//                    Theme.key_chat_gifSaveHintBackground
-//                )
-//            )
-//            tooltipBackgroundArrow!!.colorFilter = PorterDuffColorFilter(
-//                Theme.getColor(Theme.key_chat_gifSaveHintBackground),
-//                PorterDuff.Mode.MULTIPLY
-//            )
-        }
-
-        fun setCx(v: Float) {
-            cx = v
-            invalidate()
-        }
-
-        fun show(s: Boolean) {
-            show = s
-            invalidate()
-        }
+    fun reset() {
+        clearFrames()
+        progress =0f
+        leftProgress = 0f
+        rightProgress = 1f
     }
 
     companion object {
         private val sync = Any()
     }
 }
+class TimeHintView(context: Context,
+                   attrs: AttributeSet? = null) : View(context,attrs) {
+    private lateinit var tooltipBackground: Drawable
+    private var defaultArrowHeight: Float= 32f
+    private var tooltipBackgroundArrow: Drawable? = null
+    private var tooltipLayout: StaticLayout? = null
+    private val tooltipPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
+    private var lastTime: Long = -1
+    private val tooltipAlpha = 0f
+    private val showTooltip = false
+    private val showTooltipStartTime: Long = 0
+    private var cx = 0f
+    private var scale = 0f
+    private var show = false
+
+    init {
+        tooltipPaint.textSize = AndroidUtilities.dp(14f).toFloat()
+        tooltipBackgroundArrow = ContextCompat.getDrawable(context!!, R.drawable.tooltip_arrow)
+        tooltipBackground = Theme.createRoundRectDrawable(
+            AndroidUtilities.dp(5), Color.MAGENTA
+        )
+        updateColors()
+        setTime(0)
+    }
+
+    fun setTime(timeInSeconds: Int) {
+        if (timeInSeconds.toLong() != lastTime) {
+            lastTime = timeInSeconds.toLong()
+            val s: String = AndroidUtilities.formatShortDuration(timeInSeconds)
+            tooltipLayout = StaticLayout.Builder.obtain(
+                s,
+                0,
+                s.length,
+                tooltipPaint,
+                tooltipPaint.measureText(s).toInt(),
+            ).build()
+        }
+    }
+
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+        super.onMeasure(
+            widthMeasureSpec, MeasureSpec.makeMeasureSpec(
+                tooltipLayout!!.height + AndroidUtilities.dp(4) + (tooltipBackgroundArrow?.intrinsicHeight ?: defaultArrowHeight).toInt(),
+                MeasureSpec.EXACTLY
+            )
+        )
+    }
+
+    override fun onDraw(canvas: Canvas) {
+        if (tooltipLayout == null) {
+            return
+        }
+        if (show) {
+            if (scale != 1f) {
+                scale += 0.12f
+                if (scale > 1f) scale = 1f
+                invalidate()
+            }
+        } else {
+            if (scale != 0f) {
+                scale -= 0.12f
+                if (scale < 0f) scale = 0f
+                invalidate()
+            }
+            if (scale == 0f) {
+                return
+            }
+        }
+        val alpha = (255 * if (scale > 0.5f) 1f else scale / 0.5f).toInt()
+        canvas.save()
+        canvas.scale(scale, scale, cx, measuredHeight.toFloat())
+        canvas.translate(cx - tooltipLayout!!.width / 2f, 0f)
+        tooltipBackground.setBounds(
+            -AndroidUtilities.dp(8),
+            0,
+            tooltipLayout!!.width + AndroidUtilities.dp(8),
+            (tooltipLayout!!.height + AndroidUtilities.dpf2(4f)).toInt()
+        )
+        tooltipBackgroundArrow!!.setBounds(
+            tooltipLayout!!.width / 2 - (tooltipBackgroundArrow?.intrinsicWidth?.div(2)
+                ?: (defaultArrowHeight / 2).toInt()),
+            (tooltipLayout!!.height + AndroidUtilities.dpf2(4f)).toInt(),
+            tooltipLayout!!.width / 2 + (tooltipBackgroundArrow?.intrinsicWidth?.div(2)
+                ?: (defaultArrowHeight / 2).toInt()),
+            (tooltipLayout!!.height + AndroidUtilities.dpf2(4f)).toInt() + (tooltipBackgroundArrow?.intrinsicHeight ?:0)
+        )
+        tooltipBackgroundArrow?.alpha = alpha
+        tooltipBackground.alpha = alpha
+        tooltipPaint.alpha = alpha
+        tooltipBackgroundArrow?.draw(canvas)
+        tooltipBackground.draw(canvas)
+        canvas.translate(0f, AndroidUtilities.dpf2(1f))
+        tooltipLayout!!.draw(canvas)
+        canvas.restore()
+    }
+
+    fun updateColors() {
+        tooltipPaint.color = Color.RED
+        tooltipBackground = Theme.createRoundRectDrawable(
+            AndroidUtilities.dp(5), Color.CYAN
+        )
+        tooltipBackgroundArrow!!.colorFilter = PorterDuffColorFilter(
+            Color.GREEN,
+            PorterDuff.Mode.MULTIPLY
+        )
+    }
+
+    fun setCx(v: Float) {
+        cx = v
+        invalidate()
+    }
+
+    fun show(s: Boolean) {
+        show = s
+        invalidate()
+    }
+}
+
+

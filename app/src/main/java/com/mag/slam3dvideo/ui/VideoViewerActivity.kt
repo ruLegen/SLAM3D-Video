@@ -1,25 +1,46 @@
 package com.mag.slam3dvideo.ui
 
-import android.content.Intent
-import androidx.appcompat.app.AppCompatActivity
+import android.media.MediaPlayer
+import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.widget.Toast
-import androidx.appcompat.app.AlertDialog
-import androidx.core.app.ActivityCompat
-import androidx.databinding.adapters.VideoViewBindingAdapter
+import androidx.activity.result.ActivityResultCallback
+import androidx.activity.result.PickVisualMediaRequest
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.RequiresApi
+import androidx.appcompat.app.AppCompatActivity
+import androidx.core.graphics.PathUtils
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.get
-import com.mag.slam3dvideo.R
 import com.mag.slam3dvideo.databinding.ActivityVideoViewerBinding
 import com.mag.slam3dvideo.utils.AssetUtils
+import com.mag.slam3dvideo.utils.FileUtils
 import com.mag.slam3dvideo.videmodels.VideoViewerViewModel
+import java.security.Permission
+
 
 class VideoViewerActivity : AppCompatActivity() {
     lateinit var binding: ActivityVideoViewerBinding
-    val file:String = "/storage/emulated/0/DCIM/Camera/PXL_20230318_132255477.mp4"
+    @RequiresApi(Build.VERSION_CODES.Q)
+    var mediaSelectorLauncher = registerForActivityResult<PickVisualMediaRequest, Uri>(ActivityResultContracts.PickVisualMedia()){
+        it?.let{
+            val path = FileUtils(baseContext).getPath(it)
+            binding.vm?.onMediaSelected(path)
+            initTimeLine()
+        }
+    }
+
+    @RequiresApi(Build.VERSION_CODES.Q)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val vm = ViewModelProvider(this).get<VideoViewerViewModel>()
+        vm.mediaSelectClicked = {
+            mediaSelectorLauncher.launch(PickVisualMediaRequest.Builder()
+                .setMediaType(ActivityResultContracts.PickVisualMedia.VideoOnly)
+                .build()
+            )
+        }
         binding = ActivityVideoViewerBinding.inflate(layoutInflater)
         binding.vm = vm
         //ask permissions
@@ -29,6 +50,10 @@ class VideoViewerActivity : AppCompatActivity() {
         }
     }
 
+    override fun onDestroy() {
+        super.onDestroy()
+        binding?.vm?.mediaSelectClicked = null
+    }
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -42,6 +67,13 @@ class VideoViewerActivity : AppCompatActivity() {
         }
     }
     private fun initTimeLine() {
-        binding.timeline.setVideoPath(file)
+        val vm = binding.vm
+        val timeline = binding.timeline
+        timeline.reset()
+        timeline.setDelegate(binding.vm!!.timeLineDelegate)
+        timeline.setTimeHintView(binding.timeHint)
+        timeline.setRoundFrames(false)
+        timeline.setVideoPath(vm?.file)
+        timeline.progress = vm?.progress ?: 0f
     }
 }

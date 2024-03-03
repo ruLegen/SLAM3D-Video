@@ -57,7 +57,6 @@ class AssetUtils {
             val permissions = permissions()
             if(hasAllMediaPermissions(activity))
                 return  false;
-
             ActivityCompat.requestPermissions(activity,permissions(),code);
             return  true
         }

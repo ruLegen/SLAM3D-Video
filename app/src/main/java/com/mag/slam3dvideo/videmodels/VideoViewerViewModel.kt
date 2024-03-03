@@ -33,7 +33,6 @@ class VideoViewerViewModel(application: Application) : ObservableViewModel(appli
                 val totalFrames = view.videoFrameCount
                 val fps = view.videoCaptureFps
                 val currentFrame = ( totalFrames*progress).toInt()
-                Log.d("progress",currentFrame.toString())
             }
 
             override fun didStartDragging() {

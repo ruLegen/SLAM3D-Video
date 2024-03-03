@@ -11,19 +11,32 @@ class CancellationTokenSource : AutoCloseable {
         }
     var isCancelRequested: Boolean = false
         private set
-    private var lock = Any();
 
-    private var createdTokens: ArrayList<CancellationToken> = ArrayList<CancellationToken>()
+    private var lock = Any();
+    private var createdTokens: ArrayList<CancellationToken> = ArrayList()
+    private var callbacks: ArrayList<()->Unit> = ArrayList()
     fun cancel() {
         synchronized(lock) {
             isCancelRequested = true
-            //todo add token's callback execution
+            callbacks.forEach {
+                try {
+                    it.invoke()
+                } finally {
+
+                }
+            }
         }
     }
-
     override fun close() {
         createdTokens.forEach { token -> token.close() }
         createdTokens.clear()
+        callbacks.clear()
+    }
+
+    fun addCallback(callback: () -> Unit) {
+        synchronized(lock){
+            callbacks.add(callback)
+        }
     }
 }
 
@@ -34,12 +47,15 @@ class CancellationToken() : AutoCloseable {
             return source?.isCancelRequested ?: false
         }
 
+
     constructor(tokenSource: CancellationTokenSource) : this() {
         source = tokenSource
     }
-
     override fun close() {
         source = null
     }
-//todo add Register(()->Any) method
+
+    fun register(callback:()->Unit){
+        source?.addCallback(callback)
+    }
 }

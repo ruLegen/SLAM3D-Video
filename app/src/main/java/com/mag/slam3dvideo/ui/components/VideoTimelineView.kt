@@ -17,15 +17,12 @@ import android.os.AsyncTask
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
-import android.text.Layout
 import android.text.StaticLayout
 import android.text.TextPaint
 import android.util.AttributeSet
 import android.util.Log
-import android.util.TypedValue
 import android.view.MotionEvent
 import android.view.View
-import androidx.annotation.MainThread
 import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.core.math.MathUtils
@@ -36,15 +33,17 @@ import com.mag.slam3dvideo.utils.CancellationTokenSource
 import com.mag.slam3dvideo.utils.TaskRunner
 import com.mag.slam3dvideo.utils.Theme
 import java.io.FileInputStream
+import java.util.concurrent.Callable
 
 
 class VideoTimelineView
 @JvmOverloads constructor(
     context: Context,
     attrs: AttributeSet? = null,
-    defStyle: Int = 0) : View(context,attrs,defStyle) {
+    defStyle: Int = 0
+) : View(context, attrs, defStyle) {
     private val timeLineTopOffset: Int
-//       get() = measuredHeight - AndroidUtilities.dp(32) shr 1
+        //       get() = measuredHeight - AndroidUtilities.dp(32) shr 1
         get() = measuredHeight
 
     var leftProgress = 0f
@@ -52,8 +51,8 @@ class VideoTimelineView
     var rightProgress = 1f
         private set
     var progress = 0f
-        set(value){
-            field = MathUtils.clamp(value,0f,1f)
+        set(value) {
+            field = MathUtils.clamp(value, 0f, 1f)
             invalidate()
         }
 
@@ -66,7 +65,7 @@ class VideoTimelineView
     private var mediaMetadataRetriever: MediaMetadataRetriever? = null
     private var delegate: VideoTimelineViewDelegate? = null
     private val frames = ArrayList<Bitmap>()
-    private var currentTask: AsyncTask<Int?, Int?, Bitmap?>? = null
+    private var currentTask: BitmapLoadingTask = BitmapLoadingTask()
     private var frameTimeOffset: Long = 0
     private var frameWidth = 0
     private var frameHeight = 0
@@ -84,6 +83,7 @@ class VideoTimelineView
     private var timeHintView: TimeHintView? = null
     private val bitmapTaskRunner: TaskRunner = TaskRunner(Handler(Looper.getMainLooper()))
     private var bitmapCancelTokenSource = CancellationTokenSource()
+    private var isBitmapLoadingInProgress: Boolean = false
 
     var videoFrameCount: Long = 0
         private set
@@ -102,9 +102,9 @@ class VideoTimelineView
     }
 
     interface VideoTimelineViewDelegate {
-        fun onLeftProgressChanged(view:VideoTimelineView,progress: Float)
-        fun onRightProgressChanged(view:VideoTimelineView,progress: Float)
-        fun onSeek(view:VideoTimelineView,progress: Float)
+        fun onLeftProgressChanged(view: VideoTimelineView, progress: Float)
+        fun onRightProgressChanged(view: VideoTimelineView, progress: Float)
+        fun onSeek(view: VideoTimelineView, progress: Float)
         fun didStartDragging()
         fun didStopDragging()
     }
@@ -196,7 +196,7 @@ class VideoTimelineView
                 timeHintView?.show(false)
                 pressedProgress = true
                 invalidate()
-                return  true
+                return true
             }
         } else if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
             if (pressedLeft) {
@@ -211,8 +211,7 @@ class VideoTimelineView
                 invalidate()
                 timeHintView?.show(false)
                 return true
-            }else if(pressedProgress)
-            {
+            } else if (pressedProgress) {
                 delegate?.didStopDragging()
                 pressedProgress = false
                 invalidate()
@@ -227,7 +226,7 @@ class VideoTimelineView
                 } else if (startX > endX) {
                     startX = endX
                 }
-                leftProgress = (startX - AndroidUtilities.dp(16f))  / width.toFloat()
+                leftProgress = (startX - AndroidUtilities.dp(16f)) / width.toFloat()
                 if (rightProgress - leftProgress > maxProgressDiff) {
                     rightProgress = leftProgress + maxProgressDiff
                 } else if (minProgressDiff != 0f && rightProgress - leftProgress < minProgressDiff) {
@@ -243,7 +242,7 @@ class VideoTimelineView
                 )
                 timeHintView?.setTime((videoLength / 1000f * leftProgress).toInt())
                 timeHintView?.show(true)
-                delegate?.onLeftProgressChanged(this,leftProgress)
+                delegate?.onLeftProgressChanged(this, leftProgress)
                 invalidate()
                 return true
             } else if (pressedRight) {
@@ -269,12 +268,12 @@ class VideoTimelineView
                 )
                 timeHintView?.show(true)
                 timeHintView?.setTime((videoLength / 1000f * rightProgress).toInt())
-                delegate?.onRightProgressChanged(this,rightProgress)
+                delegate?.onRightProgressChanged(this, rightProgress)
                 invalidate()
                 return true
-            }else if(pressedProgress){
-                progress = x/ width.toFloat()
-                progress = MathUtils.clamp(progress,0f,1f)
+            } else if (pressedProgress) {
+                progress = x / width.toFloat()
+                progress = MathUtils.clamp(progress, 0f, 1f)
                 timeHintView?.setCx(
                     width * progress + AndroidUtilities.dpf2(12f) + left + AndroidUtilities.dp(
                         4f
@@ -282,9 +281,9 @@ class VideoTimelineView
                 )
                 timeHintView?.setTime((videoLength / 1000f * progress).toInt())
                 timeHintView?.show(true)
-                delegate?.onSeek(this,progress)
+                delegate?.onSeek(this, progress)
                 invalidate()
-                return  true
+                return true
             }
         }
         return false
@@ -298,13 +297,18 @@ class VideoTimelineView
         try {
             val inputStream = FileInputStream(path)
             mediaMetadataRetriever!!.setDataSource(inputStream.fd)
-            val duration = mediaMetadataRetriever!!.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+            val duration =
+                mediaMetadataRetriever!!.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
             videoLength = duration!!.toLong()
-            videoCaptureFps = mediaMetadataRetriever!!.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)?.toFloat() ?: 0f
-            videoFrameCount = mediaMetadataRetriever!!.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT)?.toLong() ?: -1
+            videoCaptureFps =
+                mediaMetadataRetriever!!.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)
+                    ?.toFloat() ?: 0f
+            videoFrameCount =
+                mediaMetadataRetriever!!.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT)
+                    ?.toLong() ?: -1
         } catch (e: Exception) {
             Log.e("VIDEOTIMELINE", e.message.toString());
-           // FileLog.e(e)
+            // FileLog.e(e)
         }
         invalidate()
     }
@@ -313,61 +317,67 @@ class VideoTimelineView
         delegate = videoTimelineViewDelegate
     }
 
-    private fun reloadFrames(frameNum: Int) {
+    private fun reloadFrames() {
         if (mediaMetadataRetriever == null) {
             return
         }
-        if (frameNum == 0) {
-            bitmapCancelTokenSource?.cancel()
-            bitmapCancelTokenSource = CancellationTokenSource()
-            val token = bitmapCancelTokenSource.token
+        bitmapCancelTokenSource?.cancel()
+        bitmapCancelTokenSource = CancellationTokenSource()
+        val token = bitmapCancelTokenSource.token
 
-            if (isRoundFrames) {
-                frameWidth = AndroidUtilities.dp(56)
-                frameHeight = frameWidth
-                framesToLoad = Math.max(
-                    1,
-                    Math.ceil(((getMeasuredWidth() - AndroidUtilities.dp(16)) / (frameHeight / 2.0f)).toDouble())
-                        .toInt()
-                )
-            } else {
-                frameHeight = AndroidUtilities.dp(120)
-                framesToLoad =
-                    Math.max(1, (getMeasuredWidth() - AndroidUtilities.dp(16)) / frameHeight)
-                frameWidth =
-                    Math.ceil(((getMeasuredWidth() - AndroidUtilities.dp(16)) / framesToLoad.toFloat()).toDouble())
-                        .toInt()
+        if (isRoundFrames) {
+            frameWidth = AndroidUtilities.dp(56)
+            frameHeight = frameWidth
+            framesToLoad = Math.max(
+                1,
+                Math.ceil(((getMeasuredWidth() - AndroidUtilities.dp(16)) / (frameHeight / 2.0f)).toDouble())
+                    .toInt()
+            )
+        } else {
+            frameHeight = AndroidUtilities.dp(120)
+            framesToLoad =
+                Math.max(1, (getMeasuredWidth() - AndroidUtilities.dp(16)) / frameHeight)
+            frameWidth =
+                Math.ceil(((getMeasuredWidth() - AndroidUtilities.dp(16)) / framesToLoad.toFloat()).toDouble())
+                    .toInt()
+        }
+        frameTimeOffset = videoLength / framesToLoad
+        if (!keyframes.isEmpty()) {
+            val keyFramesCount = keyframes.size
+            val step = keyFramesCount / framesToLoad.toFloat()
+            var currentP = 0f
+            for (i in 0 until framesToLoad) {
+                frames.add(keyframes[currentP.toInt()])
+                currentP += step
             }
-            frameTimeOffset = videoLength / framesToLoad
-            if (!keyframes.isEmpty()) {
-                val keyFramesCount = keyframes.size
-                val step = keyFramesCount / framesToLoad.toFloat()
-                var currentP = 0f
-                for (i in 0 until framesToLoad) {
-                    frames.add(keyframes[currentP.toInt()])
-                    currentP += step
-                }
-                return
-            }
+            return
         }
         framesLoaded = false
-        currentTask = @SuppressLint("StaticFieldLeak")
-        object : AsyncTask<Int?, Int?, Bitmap?>() {
-            private var frameNum1 = 0
-            @SuppressLint("StaticFieldLeak")
-            protected override fun doInBackground(vararg objects: Int?): Bitmap? {
-                frameNum1 = objects[0]!!
+        currentTask = loadFramesAsync(framesToLoad, token)
+    }
+
+    private fun loadFramesAsync(maxFrameCount: Int, token: CancellationToken):BitmapLoadingTask{
+        var loadingTask= BitmapLoadingTask()
+        if (maxFrameCount == 0 || token.isCancelRequested)
+            return loadingTask
+        token.register {
+            loadingTask.isActive=false
+        }
+        var currentLoadFrame = 0
+        loadingTask.isActive = true
+        val task = object : Callable<Bitmap?> {
+            override fun call(): Bitmap? {
                 var bitmap: Bitmap? = null
-                if (isCancelled) {
-                    return null
+                if (token.isCancelRequested) {
+                    return null as Bitmap
                 }
                 try {
                     bitmap = mediaMetadataRetriever!!.getFrameAtTime(
-                        frameTimeOffset * frameNum1 * 1000,
+                        frameTimeOffset * currentLoadFrame * 1000,
                         MediaMetadataRetriever.OPTION_CLOSEST_SYNC
                     )
-                    if (isCancelled) {
-                        return null
+                    if (token.isCancelRequested) {
+                        return null as Bitmap
                     }
                     if (bitmap != null) {
                         val result = Bitmap.createBitmap(frameWidth, frameHeight, bitmap.config)
@@ -384,31 +394,36 @@ class VideoTimelineView
                         bitmap = result
                     }
                 } catch (e: Exception) {
-                   // FileLog.e(e)
+                    // FileLog.e(e)
                 }
                 return bitmap!!
             }
-
-            protected override fun onPostExecute(bitmap: Bitmap?) {
-                if (!isCancelled) {
-                    frames.add(bitmap!!)
-                    invalidate()
-                    if (frameNum < framesToLoad) {
-                        reloadFrames(frameNum + 1)
-                    } else {
-                        framesLoaded = true
-                    }
+        }
+        val callback = object : TaskRunner.Callback<Bitmap?> {
+            override fun onComplete(bitmap: Bitmap?) {
+                if (token.isCancelRequested) {
+                    return
+                }
+                if (bitmap == null) {
+                    loadingTask.isActive = false
+                    return
+                }
+                frames.add(bitmap)
+                invalidate()
+                if (currentLoadFrame < framesToLoad) {
+                    currentLoadFrame++
+                    bitmapTaskRunner.executeAsync(task, this)
+                } else {
+                    framesLoaded = true
+                    loadingTask.isActive = false
                 }
             }
         }
-        currentTask?.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR, frameNum, null, null)
+
+        bitmapTaskRunner.executeAsync(task, callback)
+        return loadingTask
     }
 
-    private fun loadFrames(maxFrameCount:Int){
-        if (maxFrameCount == 0)
-            return
-
-    }
     @JvmOverloads
     fun destroy(recycle: Boolean = true) {
         synchronized(VideoTimelineView.Companion.sync) {
@@ -418,35 +433,29 @@ class VideoTimelineView
                     mediaMetadataRetriever = null
                 }
             } catch (e: Exception) {
-               // FileLog.e(e)
+                // FileLog.e(e)
             }
         }
         if (recycle) {
             if (!keyframes.isEmpty()) {
                 for (a in keyframes.indices) {
                     val bitmap = keyframes[a]
-                        bitmap?.recycle()
+                    bitmap?.recycle()
                 }
             } else {
                 for (a in frames.indices) {
                     val bitmap = frames[a]
-                        bitmap?.recycle()
+                    bitmap?.recycle()
                 }
             }
         }
+        bitmapCancelTokenSource.cancel()
         keyframes.clear()
         frames.clear()
-        if (currentTask != null) {
-            currentTask!!.cancel(true)
-            currentTask = null
-        }
     }
 
     fun clearFrames() {
-        if (currentTask != null) {
-            currentTask!!.cancel(true)
-            currentTask = null
-        }
+        bitmapCancelTokenSource.cancel()
         if (keyframes.isEmpty()) {
             for (a in frames.indices) {
                 val bitmap = frames[a]
@@ -457,7 +466,7 @@ class VideoTimelineView
         invalidate()
     }
 
-    protected override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
+    override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(widthMeasureSpec, heightMeasureSpec)
         if (useClip) {
             if (path == null) {
@@ -493,17 +502,17 @@ class VideoTimelineView
         val endX: Int = (width * rightProgress).toInt() + AndroidUtilities.dp(12)
         val progressX: Int = (width * progress).toInt() + AndroidUtilities.dp(12)
         val topOffset: Int = timeLineTopOffset
-        if (frames.isEmpty() && currentTask == null) {
-            reloadFrames(0)
+        if (frames.isEmpty() && !currentTask.isActive) {
+            reloadFrames()
         }
         if (!frames.isEmpty()) {
             if (!framesLoaded) {
                 canvas.drawRect(
                     0f,
                     topOffset.toFloat(),
-                   measuredWidth.toFloat(),
-                   (measuredHeight - topOffset).toFloat(),
-                   backgroundGrayPaint
+                    measuredWidth.toFloat(),
+                    (measuredHeight - topOffset).toFloat(),
+                    backgroundGrayPaint
                 )
             }
             var offset = 0
@@ -516,10 +525,20 @@ class VideoTimelineView
                             topOffset + AndroidUtilities.dp(32)
                         canvas.drawBitmap(bitmap, rect1, rect2!!, null)
                     } else {
-                        if(scalePreviewFrames)
-                            canvas.drawBitmap(bitmap, null, Rect(x,0,x+frameWidth,topOffset), null)
+                        if (scalePreviewFrames)
+                            canvas.drawBitmap(
+                                bitmap,
+                                null,
+                                Rect(x, 0, x + frameWidth, topOffset),
+                                null
+                            )
                         else
-                            canvas.drawBitmap(bitmap, x.toFloat(), measuredHeight-topOffset.toFloat(), null)
+                            canvas.drawBitmap(
+                                bitmap,
+                                x.toFloat(),
+                                measuredHeight - topOffset.toFloat(),
+                                null
+                            )
                     }
                 }
                 offset++
@@ -544,9 +563,9 @@ class VideoTimelineView
             (measuredHeight - topOffset).toFloat(),
             paint2
         )
-        drawTimeLineVerticalLine(canvas,startX,topOffset,thumbPaint)
-        drawTimeLineVerticalLine(canvas,endX,topOffset,thumbPaint)
-        drawTimeLineVerticalLine(canvas,progressX,topOffset,progressPaint)
+        drawTimeLineVerticalLine(canvas, startX, topOffset, thumbPaint)
+        drawTimeLineVerticalLine(canvas, endX, topOffset, thumbPaint)
+        drawTimeLineVerticalLine(canvas, progressX, topOffset, progressPaint)
 
         if (useClip) {
             canvas.restore()
@@ -561,15 +580,16 @@ class VideoTimelineView
         }
 
     }
-        fun drawTimeLineVerticalLine(canvas:Canvas, x:Int, height:Int,paint:Paint){
-            canvas.drawLine(
-                (x + AndroidUtilities.dp(4)).toFloat(),
-                (height + AndroidUtilities.dp(10)).toFloat(),
-                (x + AndroidUtilities.dp(4)).toFloat(),
-                (measuredHeight - AndroidUtilities.dp(10) - height).toFloat(),
-                paint
-            )
-        }
+
+    fun drawTimeLineVerticalLine(canvas: Canvas, x: Int, height: Int, paint: Paint) {
+        canvas.drawLine(
+            (x + AndroidUtilities.dp(4)).toFloat(),
+            (height + AndroidUtilities.dp(10)).toFloat(),
+            (x + AndroidUtilities.dp(4)).toFloat(),
+            (measuredHeight - AndroidUtilities.dp(10) - height).toFloat(),
+            paint
+        )
+    }
 
     @RequiresApi(Build.VERSION_CODES.Q)
     private fun drawCorners(canvas: Canvas, height: Int, width: Int, left: Int, top: Int) {
@@ -633,7 +653,7 @@ class VideoTimelineView
 
     fun reset() {
         clearFrames()
-        progress =0f
+        progress = 0f
         leftProgress = 0f
         rightProgress = 1f
     }
@@ -642,10 +662,13 @@ class VideoTimelineView
         private val sync = Any()
     }
 }
-class TimeHintView(context: Context,
-                   attrs: AttributeSet? = null) : View(context,attrs) {
+
+class TimeHintView(
+    context: Context,
+    attrs: AttributeSet? = null
+) : View(context, attrs) {
     private lateinit var tooltipBackground: Drawable
-    private var defaultArrowHeight: Float= 32f
+    private var defaultArrowHeight: Float = 32f
     private var tooltipBackgroundArrow: Drawable? = null
     private var tooltipLayout: StaticLayout? = null
     private val tooltipPaint = TextPaint(Paint.ANTI_ALIAS_FLAG)
@@ -684,7 +707,8 @@ class TimeHintView(context: Context,
     override fun onMeasure(widthMeasureSpec: Int, heightMeasureSpec: Int) {
         super.onMeasure(
             widthMeasureSpec, MeasureSpec.makeMeasureSpec(
-                tooltipLayout!!.height + AndroidUtilities.dp(4) + (tooltipBackgroundArrow?.intrinsicHeight ?: defaultArrowHeight).toInt(),
+                tooltipLayout!!.height + AndroidUtilities.dp(4) + (tooltipBackgroundArrow?.intrinsicHeight
+                    ?: defaultArrowHeight).toInt(),
                 MeasureSpec.EXACTLY
             )
         )
@@ -726,7 +750,8 @@ class TimeHintView(context: Context,
             (tooltipLayout!!.height + AndroidUtilities.dpf2(4f)).toInt(),
             tooltipLayout!!.width / 2 + (tooltipBackgroundArrow?.intrinsicWidth?.div(2)
                 ?: (defaultArrowHeight / 2).toInt()),
-            (tooltipLayout!!.height + AndroidUtilities.dpf2(4f)).toInt() + (tooltipBackgroundArrow?.intrinsicHeight ?:0)
+            (tooltipLayout!!.height + AndroidUtilities.dpf2(4f)).toInt() + (tooltipBackgroundArrow?.intrinsicHeight
+                ?: 0)
         )
         tooltipBackgroundArrow?.alpha = alpha
         tooltipBackground.alpha = alpha
@@ -758,6 +783,11 @@ class TimeHintView(context: Context,
         show = s
         invalidate()
     }
+
+
 }
+    class BitmapLoadingTask{
+        var isActive:Boolean = false
+    }
 
 

@@ -14,13 +14,13 @@ class TaskRunner (resultThreadHandler: Handler? = null) {
     interface Callback<R> {
         fun onComplete(result: R)
     }
-    fun <R> executeAsync(callable: Callable<R>, callback: Callback<R>) {
+    fun <R> executeAsync(callable: Callable<R>, callback: Callback<R>? = null) {
         executor.execute {
             val result: R = callable.call()
             if(handler== null)
-                callback.onComplete(result)
+                callback?.onComplete(result)
             else
-                handler.post { callback.onComplete(result) }
+                handler.post { callback?.onComplete(result) }
         }
     }
 }

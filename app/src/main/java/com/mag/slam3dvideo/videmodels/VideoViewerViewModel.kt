@@ -21,26 +21,6 @@ class VideoViewerViewModel(application: Application) : ObservableViewModel(appli
     var progress: Float = 0f
 
     init {
-        timeLineDelegate = object : VideoTimelineView.VideoTimelineViewDelegate{
-            override fun onLeftProgressChanged(view: VideoTimelineView, progress: Float) {
-            }
-
-            override fun onRightProgressChanged(view: VideoTimelineView, progress: Float) {
-            }
-
-            override fun onSeek(view: VideoTimelineView, p: Float) {
-                progress = p
-                val totalFrames = view.videoFrameCount
-                val fps = view.videoCaptureFps
-                val currentFrame = ( totalFrames*progress).toInt()
-            }
-
-            override fun didStartDragging() {
-            }
-
-            override fun didStopDragging() {
-            }
-        }
 
     }
 

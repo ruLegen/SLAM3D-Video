@@ -105,8 +105,8 @@ class VideoTimelineView
         fun onLeftProgressChanged(view: VideoTimelineView, progress: Float)
         fun onRightProgressChanged(view: VideoTimelineView, progress: Float)
         fun onSeek(view: VideoTimelineView, progress: Float)
-        fun didStartDragging()
-        fun didStopDragging()
+        fun didStartDragging(view: VideoTimelineView)
+        fun didStopDragging(view: VideoTimelineView)
     }
 
     init {
@@ -175,7 +175,7 @@ class VideoTimelineView
             }
             val additionWidth: Int = AndroidUtilities.dp(24)
             if (startX - additionWidth <= x && x <= startX + additionWidth && y >= 0 && y <= measuredHeight) {
-                delegate?.didStartDragging()
+                delegate?.didStartDragging(this)
                 pressedLeft = true
                 pressDx = x - startX
                 timeHintView?.setTime((videoLength / 1000f * leftProgress).toInt())
@@ -184,7 +184,7 @@ class VideoTimelineView
                 invalidate()
                 return true
             } else if (endX - additionWidth <= x && x <= endX + additionWidth && y >= 0 && y <= measuredHeight) {
-                delegate?.didStartDragging()
+                delegate?.didStartDragging(this)
                 pressedRight = true
                 pressDx = x - endX
                 timeHintView?.setTime((videoLength / 1000f * rightProgress).toInt())
@@ -193,6 +193,7 @@ class VideoTimelineView
                 invalidate()
                 return true
             } else {
+                delegate?.didStartDragging(this)
                 timeHintView?.show(false)
                 pressedProgress = true
                 invalidate()
@@ -200,19 +201,19 @@ class VideoTimelineView
             }
         } else if (event.action == MotionEvent.ACTION_UP || event.action == MotionEvent.ACTION_CANCEL) {
             if (pressedLeft) {
-                delegate?.didStopDragging()
+                delegate?.didStopDragging(this)
                 pressedLeft = false
                 invalidate()
                 timeHintView?.show(false)
                 return true
             } else if (pressedRight) {
-                delegate?.didStopDragging()
+                delegate?.didStopDragging(this)
                 pressedRight = false
                 invalidate()
                 timeHintView?.show(false)
                 return true
             } else if (pressedProgress) {
-                delegate?.didStopDragging()
+                delegate?.didStopDragging(this)
                 pressedProgress = false
                 invalidate()
                 timeHintView?.show(false)

@@ -111,36 +111,31 @@ class MapViewActivity : AppCompatActivity() {
     private fun produce() {
         var i = 0
         while (true){
+            Log.d("produced","got buffer for produce")
             val b = bufferQueue!!.getBufferToProduce()
             b?.value = i
-                bufferQueue!!.releaseProducedBuffer(b!!)
             Log.d("produced",i.toString())
+            Log.d("consumed","try release produce " + b?.value.toString())
+            bufferQueue!!.releaseProducedBuffer(b!!)
+            Log.d("consumed","released produce " + b?.value.toString())
             i++
-            Thread.sleep(1000);
-            tr2!!.executeAsync({
-                produce();
-            })
+            Thread.sleep(2000);
+
         }
     }
 
     private fun consume(){
         while (true){
-            Thread.sleep(6000);
             val b = bufferQueue!!.getBufferToConsume()
             if(b == null)
             {
                 Thread.sleep(1000);
-                tr1!!.executeAsync({
-                    consume();
-                })
-                return
+                continue
             }
             Log.d("consumed","Consumed " + b?.value.toString())
-            Thread.sleep(1000);
+            Thread.sleep(100);
+            Log.d("consumed","try release Consumed " + b?.value.toString())
             bufferQueue?.releaseConsumedBuffer(b!!)
-            tr1!!.executeAsync({
-                consume();
-            })
         }
     }
     private fun setupSurfaceView() {

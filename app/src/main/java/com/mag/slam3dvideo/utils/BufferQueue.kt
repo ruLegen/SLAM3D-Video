@@ -20,6 +20,7 @@ class BufferQueue<T>(size: Int) {
 
     private var trackedItems: MutableMap<UUID, BufferQueueItem<T>> = mutableMapOf()
     private var queueStates: MutableMap<UUID, QueueState> = mutableMapOf()
+    private var producedBuffersDeque: ArrayDeque<BufferQueueItem<T>> = ArrayDeque(size)
     private val lock = Any()
     private val producerLock = Object()
     private val consumerLock = Object()
@@ -52,9 +53,8 @@ class BufferQueue<T>(size: Int) {
     }
 
     fun getBufferToConsume(): BufferQueueItem<T>? {
-        val getItem =
-            { queueStates.firstNotNullOfOrNull { item -> item.takeIf { it.value == QueueState.Produced } } }
-        var item: Map.Entry<UUID, QueueState>?;
+        val getItem = {producedBuffersDeque.removeFirstOrNull()}
+        var item: BufferQueueItem<T>?
         synchronized(lock) {
             item = getItem()
         }
@@ -65,8 +65,8 @@ class BufferQueue<T>(size: Int) {
             }
         }
         synchronized(lock) {
-            queueStates[item!!.key] = QueueState.Consuming
-            return trackedItems[item!!.key]
+            queueStates[item!!.id] = QueueState.Consuming
+            return  item
         }
     }
 
@@ -89,8 +89,9 @@ class BufferQueue<T>(size: Int) {
                 return
             val state = queueStates[item.id]!!
             assert(state == QueueState.Producing) { "Cannot release produced buffer, because state is ${state}" }
-            queueStates[item.id] = QueueState.Produced
             synchronized(consumerLock) {
+                producedBuffersDeque.addLast(trackedItems[item.id]!!)
+                queueStates[item.id] = QueueState.Produced
                 consumerLock.notifyAll()
             }
         }

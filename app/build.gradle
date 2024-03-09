@@ -59,12 +59,15 @@ dependencies {
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.10.0'
 
-    implementation 'com.google.android.filament:filamat-android:1.49.3'
-    implementation 'com.google.android.filament:filament-android:1.49.3'
-    implementation 'com.google.android.filament:filament-utils-android:1.49.3'
-    implementation 'com.google.android.filament:gltfio-android:1.49.3'
+//    implementation 'com.google.android.filament:filamat-android:1.49.3'
+//    implementation 'com.google.android.filament:filament-android:1.49.3'
+//    implementation 'com.google.android.filament:filament-utils-android:1.49.3'
+//    implementation 'com.google.android.filament:gltfio-android:1.49.3'
 
     implementation 'androidx.constraintlayout:constraintlayout:2.1.4'
+    implementation files('D:/Projects/filament/android/filament-android/build/outputs/aar/filament-android-debug.aar')
+    implementation files('D:/Projects/filament/android/filamat-android/build/outputs/aar/filamat-v1.50.0-android.aar')
+    implementation files('D:/Projects/filament/android/filament-utils-android/build/outputs/aar/filament-utils-android-debug.aar')
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'

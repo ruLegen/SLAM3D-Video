@@ -1,9 +1,8 @@
 package com.mag.slam3dvideo.ui
 
-import androidx.appcompat.app.AppCompatActivity
-import android.os.Bundle
 import android.animation.ValueAnimator
-import android.opengl.Matrix
+import android.graphics.Bitmap
+import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
@@ -11,21 +10,48 @@ import android.view.Choreographer
 import android.view.Surface
 import android.view.SurfaceView
 import android.view.animation.LinearInterpolator
-import com.google.android.filament.*
+import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
+import com.google.android.filament.Box
+import com.google.android.filament.Camera
+import com.google.android.filament.Colors
+import com.google.android.filament.Engine
+import com.google.android.filament.Entity
+import com.google.android.filament.EntityManager
+import com.google.android.filament.Filament
+import com.google.android.filament.IndexBuffer
+import com.google.android.filament.Material
+import com.google.android.filament.Material.UserVariantFilterBit
+import com.google.android.filament.MaterialInstance
+import com.google.android.filament.RenderableManager
 import com.google.android.filament.RenderableManager.PrimitiveType
+import com.google.android.filament.Renderer
+import com.google.android.filament.Scene
+import com.google.android.filament.SwapChain
+import com.google.android.filament.Texture
+import com.google.android.filament.Texture.PixelBufferDescriptor
+import com.google.android.filament.TextureSampler
+import com.google.android.filament.VertexBuffer
 import com.google.android.filament.VertexBuffer.AttributeType
 import com.google.android.filament.VertexBuffer.VertexAttribute
+import com.google.android.filament.View
+import com.google.android.filament.Viewport
 import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.FilamentHelper
+import com.google.android.filament.android.TextureHelper
 import com.google.android.filament.android.UiHelper
 import com.google.android.filament.filamat.MaterialBuilder
+import com.google.android.filament.utils.SKIP_BITMAP_COPY
+import com.mag.slam3dvideo.utils.AssetUtils
 import com.mag.slam3dvideo.utils.BufferQueue
-import com.mag.slam3dvideo.utils.BufferQueueItem
 import com.mag.slam3dvideo.utils.TaskRunner
+import com.mag.slam3dvideo.utils.TextureUtils
 import com.mag.slam3dvideo.utils.video.VideoFrameRetriever
-import java.lang.Math.*
+import java.lang.IllegalArgumentException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import java.util.concurrent.CountDownLatch
+
 
 class MapViewActivity : AppCompatActivity() {
     // Make sure to initialize Filament first
@@ -33,24 +59,30 @@ class MapViewActivity : AppCompatActivity() {
     companion object {
         init {
             Filament.init()
+
             MaterialBuilder.init()
         }
     }
+    private var videoTextureSampler: TextureSampler = TextureSampler(TextureSampler.MinFilter.LINEAR, TextureSampler.MagFilter.LINEAR,TextureSampler.WrapMode.REPEAT)
+    private lateinit var frameBufferQueue: BufferQueue<Bitmap?>
+    private var imageDecoderTaskRunner: TaskRunner? = null
+    private var textureUpdaterTaskRunner: TaskRunner? = null
 
-    private var bufferQueue: BufferQueue<Int>? = null
-    private var tr1: TaskRunner? = null
-    private var tr2: TaskRunner? = null
+//    var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20230318_132255477.mp4"
+    var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240223_143249538.mp4"
 
-    var file:String = "/storage/emulated/0/DCIM/Camera/PXL_20230318_132255477.mp4"
-
+    
     private var matInstance: MaterialInstance? = null
 
     // The View we want to render into
     private lateinit var surfaceView: SurfaceView
+
     // UiHelper is provided by Filament to manage SurfaceView and SurfaceTexture
     private lateinit var uiHelper: UiHelper
+
     // DisplayHelper is provided by Filament to manage the display
     private lateinit var displayHelper: DisplayHelper
+
     // Choreographer is used to schedule new frames
     private lateinit var choreographer: Choreographer
 
@@ -58,21 +90,27 @@ class MapViewActivity : AppCompatActivity() {
     // Each engine must be accessed from a single thread of your choosing
     // Resources cannot be shared across engines
     private lateinit var engine: Engine
+
     // A renderer instance is tied to a single surface (SurfaceView, TextureView, etc.)
     private lateinit var renderer: Renderer
+
     // A scene holds all the renderable, lights, etc. to be drawn
     private lateinit var scene: Scene
+
     // A view defines a viewport, a scene and a camera for rendering
     private lateinit var view: View
+
     // Should be pretty obvious :)
     private lateinit var camera: Camera
 
     private lateinit var material: Material
     private lateinit var vertexBuffer: VertexBuffer
     private lateinit var indexBuffer: IndexBuffer
+    private lateinit var videoTexture: Texture
 
     // Filament entity representing a renderable object
-    @Entity private var renderable = 0
+    @Entity
+    private var renderable = 0
 
     // A swap chain is Filament's representation of a surface
     private var swapChain: SwapChain? = null
@@ -84,6 +122,8 @@ class MapViewActivity : AppCompatActivity() {
 
     private var videoRetriever: VideoFrameRetriever? = null
 
+    private val handler = Handler(Looper.getMainLooper())
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         surfaceView = SurfaceView(this)
@@ -94,321 +134,406 @@ class MapViewActivity : AppCompatActivity() {
         setupFilament()
         setupView()
         setupScene()
-        bufferQueue = BufferQueue(5)
-        tr1 = TaskRunner()
-        tr2 = TaskRunner()
-        tr1!!.executeAsync({
-            consume();
-        });
-        tr2!!.executeAsync({
-            produce();
+        if (!AssetUtils.askMediaPermissions(this, 1)) {
+            initVideoFrameGraber()
+        }
+    }
+
+    override fun onRequestPermissionsResult(requestCode: Int,permissions: Array<out String>,grantResults: IntArray) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (AssetUtils.hasAllMediaPermissions(this)) {
+            initVideoFrameGraber()
+        } else {
+            Toast.makeText(
+                this,
+                "Cannot start app, no media permissions granted",
+                Toast.LENGTH_LONG
+            ).show();
+        }
+    }
+    private fun initVideoFrameGraber() {
+        frameBufferQueue = BufferQueue(5)
+        videoRetriever = VideoFrameRetriever(file);
+        videoRetriever!!.initialize()
+        imageDecoderTaskRunner = TaskRunner().apply {
+            executeAsync({ decodeFrame(0) })
+        }
+        textureUpdaterTaskRunner = TaskRunner().apply {
+            executeAsync({ updateTexture(0) })
+        }
+    }
+
+    private fun decodeFrame(frame: Int) {
+        val b = frameBufferQueue.getBufferToProduce()!!
+        val decodedBitmap = videoRetriever?.getFrame(frame)
+        b.value = decodedBitmap
+        frameBufferQueue.releaseProducedBuffer(b);
+        Log.d("DECODER", "Decoded ${frame}/${videoRetriever?.frameCount}")
+        if (decodedBitmap != null) {
+            imageDecoderTaskRunner?.executeAsync({ decodeFrame(frame + 1) })
+        }
+    }
+
+    private fun updateTexture(retryNum: Int) {
+        if (retryNum > 2)
+            return
+
+        val decodedBitmap = frameBufferQueue.getBufferToConsume()
+        val isValid = decodedBitmap!!.value != null
+        if (!isValid) {
+            frameBufferQueue.releaseConsumedBuffer(decodedBitmap)
+            textureUpdaterTaskRunner?.executeAsync({
+                updateTexture(retryNum + 1)
+            })
+            return
+        }
+
+        val bitmap = decodedBitmap.value!!
+        val w = videoTexture.getWidth(0)
+        val h = videoTexture.getHeight(0)
+        val channels = when(bitmap.config){
+            Bitmap.Config.ARGB_8888 -> 4
+            Bitmap.Config.ALPHA_8 -> 1
+            else -> {-1}
+        }
+        if(channels == -1)
+            throw Exception("Unsupported bitmap mode ${bitmap.config}")
+        var processTexture = videoTexture
+        if(w != bitmap.width || h != bitmap.height) {
+            val latch = CountDownLatch(1)
+            handler.post(Runnable { // Code to run on the UI thread
+                val newTexture = Texture.Builder()
+                    .width(bitmap.width)
+                    .height(bitmap.height)
+                    .levels(0xff)
+                    .format(Texture.InternalFormat.RGBA8)
+                    .sampler(Texture.Sampler.SAMPLER_2D)
+                    .build(engine);
+                processTexture = newTexture
+                latch.countDown()
+            })
+            try {
+                latch.await()
+            }catch (ex:Exception){}
+        }
+        val format = TextureUtils.format(bitmap)
+        val type = TextureUtils.type(bitmap)
+
+        val buffer = ByteBuffer.allocateDirect(bitmap.byteCount)
+        bitmap.copyPixelsToBuffer(buffer)
+        buffer.flip()
+        bitmap.recycle()
+
+        val latch = CountDownLatch(1)
+        handler.post {
+            val newBuffer = PixelBufferDescriptor(buffer,format,type)
+            processTexture.setImage(engine, 0, newBuffer)
+            videoTexture = processTexture
+            matInstance?.setParameter("videoTexture", videoTexture, videoTextureSampler)
+            latch.countDown()
+        }
+        try {
+            latch.await()
+        }catch (ex:Exception){}
+        frameBufferQueue.releaseConsumedBuffer(decodedBitmap)
+        textureUpdaterTaskRunner?.executeAsync({
+            updateTexture(0)
         })
-        //videoRetriever = VideoFrameRetriever(file);
-        //videoRetriever!!.initialize()
-        //val bitmap = videoRetriever?.getFrame(0)
     }
 
-    private fun produce() {
-        var i = 0
-        while (true){
-            Log.d("produced","got buffer for produce")
-            val b = bufferQueue!!.getBufferToProduce()
-            b?.value = i
-            Log.d("produced",i.toString())
-            Log.d("consumed","try release produce " + b?.value.toString())
-            bufferQueue!!.releaseProducedBuffer(b!!)
-            Log.d("consumed","released produce " + b?.value.toString())
-            i++
-            Thread.sleep(2000);
 
+    // Not required when SKIP_BITMAP_COPY is true
+
+
+private fun setupSurfaceView() {
+    uiHelper = UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK)
+    uiHelper.renderCallback = SurfaceCallback()
+
+    // NOTE: To choose a specific rendering resolution, add the following line:
+    // uiHelper.setDesiredSize(1280, 720)
+    uiHelper.attachTo(surfaceView)
+}
+
+private fun setupFilament() {
+    engine = Engine.Builder().featureLevel(Engine.FeatureLevel.FEATURE_LEVEL_1).build()
+    renderer = engine.createRenderer()
+    scene = engine.createScene()
+    view = engine.createView()
+    camera = engine.createCamera(engine.entityManager.create())
+}
+
+private fun setupView() {
+//        scene.skybox = Skybox.Builder().color(1.0f, 1f, 1f, 1.0f).build(engine)
+    // post-processing is not supported at feature level 0
+    view.isPostProcessingEnabled = false
+    // Tell the view which camera we want to use
+    view.camera = camera
+    // Tell the view which scene we want to render
+    view.scene = scene
+}
+
+private fun setupScene() {
+    loadMaterial()
+    createMesh()
+    createTexture()
+    // To create a renderable we first create a generic entity
+    renderable = EntityManager.get().create()
+    matInstance = material.createInstance()
+        .apply {
+            setParameter("baseColor", Colors.RgbaType.LINEAR, 1f, 0f, 0f, 1f)
         }
-    }
+    RenderableManager.Builder(1)
+        .boundingBox(Box(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f))
+        .geometry(0, PrimitiveType.TRIANGLES, vertexBuffer, indexBuffer, 0, indexBuffer.indexCount)
+        .material(0, matInstance!!)
+        .culling(false)
+        .build(engine, renderable)
+    scene.addEntity(renderable)
 
-    private fun consume(){
-        while (true){
-            val b = bufferQueue!!.getBufferToConsume()
-            if(b == null)
-            {
-                Thread.sleep(1000);
-                continue
-            }
-            Log.d("consumed","Consumed " + b?.value.toString())
-            Thread.sleep(100);
-            Log.d("consumed","try release Consumed " + b?.value.toString())
-            bufferQueue?.releaseConsumedBuffer(b!!)
+    startAnimation()
+}
+
+private fun createTexture() {
+    videoTexture = Texture.Builder()
+        .width(1)
+        .height(1)
+        .levels(1)
+        .format(Texture.InternalFormat.RGBA8)
+        .sampler(Texture.Sampler.SAMPLER_2D)
+        .build(engine)
+    var buffer =
+        PixelBufferDescriptor(ByteBuffer.allocate(128), Texture.Format.RGBA, Texture.Type.UBYTE);
+    videoTexture.setImage(engine, 0, buffer);
+}
+
+private fun loadMaterial() {
+    readUncompressedAsset("materials/baked_color.filamat").let {
+        material = Material.Builder().payload(it, it.remaining()).build(engine)
+        material.compile(
+            Material.CompilerPriorityQueue.HIGH,
+            UserVariantFilterBit.ALL,
+            Handler(Looper.getMainLooper())
+        ) {
+            android.util.Log.i(
+                "hellotriangle",
+                "Material " + material.name + " compiled."
+            )
         }
+        engine.flush()
     }
-    private fun setupSurfaceView() {
-        uiHelper = UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK)
-        uiHelper.renderCallback = SurfaceCallback()
+}
 
-        // NOTE: To choose a specific rendering resolution, add the following line:
-        // uiHelper.setDesiredSize(1280, 720)
-        uiHelper.attachTo(surfaceView)
-    }
+private fun createMesh() {
+    val vertexSize = 6 * Float.SIZE_BYTES
 
-    private fun setupFilament() {
-        engine = Engine.Builder().featureLevel(Engine.FeatureLevel.FEATURE_LEVEL_1).build()
-        renderer = engine.createRenderer()
-        scene = engine.createScene()
-        view = engine.createView()
-        camera = engine.createCamera(engine.entityManager.create())
-    }
+    data class Vertex(
+        val x: Float,
+        val y: Float,
+        val z: Float,
+        val w: Float,
+        val u: Float,
+        val v: Float
+    )
 
-    private fun setupView() {
-        scene.skybox = Skybox.Builder().color(1.0f, 1f, 1f, 1.0f).build(engine)
-
-        // post-processing is not supported at feature level 0
-        view.isPostProcessingEnabled = false
-
-        // Tell the view which camera we want to use
-        view.camera = camera
-
-        // Tell the view which scene we want to render
-        view.scene = scene
+    fun ByteBuffer.put(v: Vertex): ByteBuffer {
+        putFloat(v.x)
+        putFloat(v.y)
+        putFloat(v.z)
+        putFloat(v.w)
+        putFloat(v.u)
+        putFloat(v.v)
+        return this
     }
 
-    private fun setupScene() {
-        loadMaterial()
-        createMesh()
+    var verticies = arrayOf(
+        Vertex(1f, 1.0f, 0.0f, 1f, 1f, 1f),
+        Vertex(-1f, 1f, 0.0f, 1f, 0f, 1f),
+        Vertex(-1f, -1f, 0.0f, 1f, 0f, 0f),
+        Vertex(1f, -1f, 0.0f, 1f, 1f, 0f)
+    )
 
-        // To create a renderable we first create a generic entity
-        renderable =  EntityManager.get().create()
-
-        matInstance = material.createInstance()
-            .apply {
-                setParameter("baseColor",Colors.RgbaType.LINEAR ,1f,0f,0f,1f)
-            }
-        // We then create a renderable component on that entity
-        // A renderable is made of several primitives; in this case we declare only 1
-        RenderableManager.Builder(1)
-            // Overall bounding box of the renderable
-            .boundingBox(Box(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 0.01f))
-            // Sets the mesh data of the first primitive
-            .geometry(0, PrimitiveType.TRIANGLES, vertexBuffer, indexBuffer, 0, 3)
-            // Sets the material of the first primitive
-            .material(0, matInstance!!)
-            .build(engine, renderable)
-
-        // Add the entity to the scene to render it
-        scene.addEntity(renderable)
-
-        startAnimation()
-    }
-
-    private fun loadMaterial() {
-        readUncompressedAsset("materials/baked_color.filamat").let {
-            material = Material.Builder().payload(it, it.remaining()).build(engine)
-            material.compile(
-                Material.CompilerPriorityQueue.HIGH,
-                Material.UserVariantFilterBit.ALL,
-                Handler(Looper.getMainLooper())) {
-                android.util.Log.i("hellotriangle",
-                    "Material " + material.name + " compiled.")
-            }
-            engine.flush()
+    val vertexData = ByteBuffer.allocate(verticies.size * vertexSize)
+        .order(ByteOrder.nativeOrder())
+        .also {
+            verticies.forEach { v -> it.put(v) }
         }
-    }
+        .flip()
 
-    private fun createMesh() {
-        val intSize = 4
-        val floatSize = 4
-        val shortSize = 2
-        // A vertex is a position + a color:
-        // 3 floats for XYZ position, 1 integer for color
-        val vertexSize = 3 * floatSize + intSize
+    vertexBuffer = VertexBuffer.Builder()
+        .bufferCount(1)
+        .vertexCount(verticies.size)
+        .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT4, 0, vertexSize)
+        .attribute(VertexAttribute.UV0, 0, AttributeType.FLOAT2, 4 * Float.SIZE_BYTES, vertexSize)
+        .build(engine)
+    vertexBuffer.setBufferAt(engine, 0, vertexData)
 
-        // Define a vertex and a function to put a vertex in a ByteBuffer
-        data class Vertex(val x: Float, val y: Float, val z: Float, val color: Int)
-        fun ByteBuffer.put(v: Vertex): ByteBuffer {
-            putFloat(v.x)
-            putFloat(v.y)
-            putFloat(v.z)
-            putInt(v.color)
-            return this
+    val indeces = arrayOf<Short>(0, 1, 2, 2, 3, 0)
+    val indexData = ByteBuffer.allocate(indeces.size * Short.SIZE_BYTES)
+        .order(ByteOrder.nativeOrder())
+        .also {
+            indeces.forEach { i -> it.putShort(i) }
         }
+        .flip()
+    indexBuffer = IndexBuffer.Builder()
+        .indexCount(indeces.size)
+        .bufferType(IndexBuffer.Builder.IndexType.USHORT)
+        .build(engine)
+    indexBuffer.setBuffer(engine, indexData)
+}
 
-        // We are going to generate a single triangle
-        val vertexCount = 3
-        val a1 = PI * 2.0 / 3.0
-        val a2 = PI * 4.0 / 3.0
+private fun startAnimation() {
+    // Animate the triangle
+    animator.interpolator = LinearInterpolator()
+    animator.duration = 4000
+    animator.repeatMode = ValueAnimator.RESTART
+    animator.repeatCount = ValueAnimator.INFINITE
+    animator.addUpdateListener(object : ValueAnimator.AnimatorUpdateListener {
+        val transformMatrix = FloatArray(16)
+        override fun onAnimationUpdate(a: ValueAnimator) {
+//                Matrix.setRotateM(transformMatrix, 0, -(a.animatedValue as Float), 0.0f, 0.0f, 1.0f)
+//                val tcm = engine.transformManager
+//                tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
+//              ///  this@MapViewActivity.surfaceView.setBackgroundColor(Color.argb(1f,(a.currentPlayTime % 5000) / 5000f,0f,0f))
+            matInstance?.setParameter(
+                "baseColor",
+                Colors.RgbaType.LINEAR,
+                0f,
+                (a.currentPlayTime % 5000) / 5000f,
+                0f,
+                1f
+            )
+        }
+    })
+    animator.start()
+}
 
-        val vertexData = ByteBuffer.allocate(vertexCount * vertexSize)
-            // It is important to respect the native byte order
-            .order(ByteOrder.nativeOrder())
-            .put(Vertex(1.0f,              0.0f,              0.0f, 0xffff0000.toInt()))
-            .put(Vertex(cos(a1).toFloat(), sin(a1).toFloat(), 0.0f, 0xff00ff00.toInt()))
-            .put(Vertex(cos(a2).toFloat(), sin(a2).toFloat(), 0.0f, 0xff0000ff.toInt()))
-            // Make sure the cursor is pointing in the right place in the byte buffer
-            .flip()
+override fun onResume() {
+    super.onResume()
+    choreographer.postFrameCallback(frameScheduler)
+    animator.start()
+}
 
-        // Declare the layout of our mesh
-        vertexBuffer = VertexBuffer.Builder()
-            .bufferCount(1)
-            .vertexCount(vertexCount)
-            // Because we interleave position and color data we must specify offset and stride
-            // We could use de-interleaved data by declaring two buffers and giving each
-            // attribute a different buffer index
-            .attribute(VertexAttribute.POSITION, 0, AttributeType.FLOAT3, 0,             vertexSize)
-            .attribute(VertexAttribute.COLOR,    0, AttributeType.UBYTE4, 3 * floatSize, vertexSize)
-            // We store colors as unsigned bytes but since we want values between 0 and 1
-            // in the material (shaders), we must mark the attribute as normalized
-            .normalized(VertexAttribute.COLOR)
-            .build(engine)
+override fun onPause() {
+    super.onPause()
+    choreographer.removeFrameCallback(frameScheduler)
+    animator.cancel()
+}
 
-        // Feed the vertex data to the mesh
-        // We only set 1 buffer because the data is interleaved
-        vertexBuffer.setBufferAt(engine, 0, vertexData)
+override fun onDestroy() {
+    super.onDestroy()
 
-        // Create the indices
-        val indexData = ByteBuffer.allocate(vertexCount * shortSize)
-            .order(ByteOrder.nativeOrder())
-            .putShort(0)
-            .putShort(1)
-            .putShort(2)
-            .flip()
+    // Stop the animation and any pending frame
+    choreographer.removeFrameCallback(frameScheduler)
+    animator.cancel();
 
-        indexBuffer = IndexBuffer.Builder()
-            .indexCount(3)
-            .bufferType(IndexBuffer.Builder.IndexType.USHORT)
-            .build(engine)
-        indexBuffer.setBuffer(engine, indexData)
-    }
+    // Always detach the surface before destroying the engine
+    uiHelper.detach()
 
-    private fun startAnimation() {
-        // Animate the triangle
-        animator.interpolator = LinearInterpolator()
-        animator.duration = 4000
-        animator.repeatMode = ValueAnimator.RESTART
-        animator.repeatCount = ValueAnimator.INFINITE
-        animator.addUpdateListener(object : ValueAnimator.AnimatorUpdateListener {
-            val transformMatrix = FloatArray(16)
-            override fun onAnimationUpdate(a: ValueAnimator) {
-                Matrix.setRotateM(transformMatrix, 0, -(a.animatedValue as Float), 0.0f, 0.0f, 1.0f)
-                val tcm = engine.transformManager
-                tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
-                matInstance?.setParameter("baseColor",Colors.RgbaType.LINEAR ,(a.currentPlayTime%5000)/5000f,0f,0f,1f)
-            }
-        })
-        animator.start()
-    }
+    // Cleanup all resources
+    engine.destroyEntity(renderable)
+    engine.destroyRenderer(renderer)
+    engine.destroyVertexBuffer(vertexBuffer)
+    engine.destroyIndexBuffer(indexBuffer)
+    engine.destroyMaterial(material)
+    engine.destroyView(view)
+    engine.destroyScene(scene)
+    engine.destroyCameraComponent(camera.entity)
 
-    override fun onResume() {
-        super.onResume()
-        choreographer.postFrameCallback(frameScheduler)
-        animator.start()
-    }
+    // Engine.destroyEntity() destroys Filament related resources only
+    // (components), not the entity itself
+    val entityManager = EntityManager.get()
+    entityManager.destroy(renderable)
+    entityManager.destroy(camera.entity)
 
-    override fun onPause() {
-        super.onPause()
-        choreographer.removeFrameCallback(frameScheduler)
-        animator.cancel()
-    }
+    // Destroying the engine will free up any resource you may have forgotten
+    // to destroy, but it's recommended to do the cleanup properly
+    engine.destroy()
+}
 
-    override fun onDestroy() {
-        super.onDestroy()
+inner class FrameCallback : Choreographer.FrameCallback {
+    override fun doFrame(frameTimeNanos: Long) {
+        // Schedule the next frame
+        choreographer.postFrameCallback(this)
 
-        // Stop the animation and any pending frame
-        choreographer.removeFrameCallback(frameScheduler)
-        animator.cancel();
-
-        // Always detach the surface before destroying the engine
-        uiHelper.detach()
-
-        // Cleanup all resources
-        engine.destroyEntity(renderable)
-        engine.destroyRenderer(renderer)
-        engine.destroyVertexBuffer(vertexBuffer)
-        engine.destroyIndexBuffer(indexBuffer)
-        engine.destroyMaterial(material)
-        engine.destroyView(view)
-        engine.destroyScene(scene)
-        engine.destroyCameraComponent(camera.entity)
-
-        // Engine.destroyEntity() destroys Filament related resources only
-        // (components), not the entity itself
-        val entityManager = EntityManager.get()
-        entityManager.destroy(renderable)
-        entityManager.destroy(camera.entity)
-
-        // Destroying the engine will free up any resource you may have forgotten
-        // to destroy, but it's recommended to do the cleanup properly
-        engine.destroy()
-    }
-
-    inner class FrameCallback : Choreographer.FrameCallback {
-        override fun doFrame(frameTimeNanos: Long) {
-            // Schedule the next frame
-            choreographer.postFrameCallback(this)
-
-            // This check guarantees that we have a swap chain
-            if (uiHelper.isReadyToRender) {
-                // If beginFrame() returns false you should skip the frame
-                // This means you are sending frames too quickly to the GPU
-                if (renderer.beginFrame(swapChain!!, frameTimeNanos)) {
-                    renderer.render(view)
-                    renderer.endFrame()
-                }
+        // This check guarantees that we have a swap chain
+        if (uiHelper.isReadyToRender) {
+            // If beginFrame() returns false you should skip the frame
+            // This means you are sending frames too quickly to the GPU
+            if (renderer.beginFrame(swapChain!!, frameTimeNanos)) {
+                renderer.render(view)
+                renderer.endFrame()
             }
         }
     }
+}
 
-    inner class SurfaceCallback : UiHelper.RendererCallback {
-        override fun onNativeWindowChanged(surface: Surface) {
-            swapChain?.let { engine.destroySwapChain(it) }
+inner class SurfaceCallback : UiHelper.RendererCallback {
+    override fun onNativeWindowChanged(surface: Surface) {
+        swapChain?.let { engine.destroySwapChain(it) }
 
-            // at feature level 0, we don't have post-processing, so we need to set
-            // the colorspace to sRGB (FIXME: it's not supported everywhere!)
-            var flags = uiHelper.swapChainFlags
-            if (engine.activeFeatureLevel == Engine.FeatureLevel.FEATURE_LEVEL_0) {
-                if (SwapChain.isSRGBSwapChainSupported(engine)) {
-                    flags = flags or SwapChain.CONFIG_SRGB_COLORSPACE
-                }
-            }
-
-            swapChain = engine.createSwapChain(surface, flags)
-            displayHelper.attach(renderer, surfaceView.display);
-        }
-
-        override fun onDetachedFromSurface() {
-            displayHelper.detach();
-            swapChain?.let {
-                engine.destroySwapChain(it)
-                // Required to ensure we don't return before Filament is done executing the
-                // destroySwapChain command, otherwise Android might destroy the Surface
-                // too early
-                engine.flushAndWait()
-                swapChain = null
+        // at feature level 0, we don't have post-processing, so we need to set
+        // the colorspace to sRGB (FIXME: it's not supported everywhere!)
+        var flags = uiHelper.swapChainFlags
+        if (engine.activeFeatureLevel == Engine.FeatureLevel.FEATURE_LEVEL_0) {
+            if (SwapChain.isSRGBSwapChainSupported(engine)) {
+                flags = flags or SwapChain.CONFIG_SRGB_COLORSPACE
             }
         }
 
-        override fun onResized(width: Int, height: Int) {
-            val zoom = 2.0
-            val aspect = width.toDouble() / height.toDouble()
-            camera.setProjection(Camera.Projection.ORTHO,
-                -aspect * zoom, aspect * zoom, -zoom, zoom, 0.0, 10.0)
+        swapChain = engine.createSwapChain(surface, flags)
+        displayHelper.attach(renderer, surfaceView.display);
+    }
 
-            view.viewport = Viewport(0, 0, width, height)
-
-            FilamentHelper.synchronizePendingFrames(engine)
+    override fun onDetachedFromSurface() {
+        displayHelper.detach();
+        swapChain?.let {
+            engine.destroySwapChain(it)
+            // Required to ensure we don't return before Filament is done executing the
+            // destroySwapChain command, otherwise Android might destroy the Surface
+            // too early
+            engine.flushAndWait()
+            swapChain = null
         }
     }
 
-    private fun readUncompressedAsset(assetName: String): ByteBuffer {
-        val mat = MaterialBuilder()
-            .name("backed_color")
-            .uniformParameter(MaterialBuilder.UniformType.FLOAT4, "baseColor")
-            .require(MaterialBuilder.VertexAttribute.COLOR)
-            .platform(MaterialBuilder.Platform.MOBILE)
-            .shading(MaterialBuilder.Shading.UNLIT)
-            .material("""
+    override fun onResized(width: Int, height: Int) {
+//            val zoom = 1.5
+//            val aspect = width.toDouble() / height.toDouble()
+//            camera.setProjection(Camera.Projection.ORTHO,-aspect * zoom, aspect * zoom, -zoom, zoom, 0.0, 10.0)
+
+        view.viewport = Viewport(0, 0, width, height)
+
+        FilamentHelper.synchronizePendingFrames(engine)
+    }
+}
+
+private fun readUncompressedAsset(assetName: String): ByteBuffer {
+    val mat = MaterialBuilder()
+        .name("backed_color")
+        .uniformParameter(MaterialBuilder.UniformType.FLOAT4, "baseColor")
+        .samplerParameter(MaterialBuilder.SamplerType.SAMPLER_2D,MaterialBuilder.SamplerFormat.FLOAT,MaterialBuilder.ParameterPrecision.DEFAULT,"videoTexture")
+
+        .require(MaterialBuilder.VertexAttribute.UV0)
+        .platform(MaterialBuilder.Platform.MOBILE)
+        .shading(MaterialBuilder.Shading.UNLIT)
+        .flipUV(true)
+        .vertexDomain(MaterialBuilder.VertexDomain.DEVICE)
+        // .depthWrite(false)
+        .variantFilter(
+            UserVariantFilterBit.SKINNING.or(UserVariantFilterBit.SHADOW_RECEIVER)
+                .or(UserVariantFilterBit.VSM)
+        )
+        .culling(MaterialBuilder.CullingMode.NONE)
+        .material(
+            """
                void material(inout MaterialInputs material) {
                    prepareMaterial(material);
-                   material.baseColor =  materialParams.baseColor;
+                   material.baseColor =  texture(materialParams_videoTexture, getUV0());
                }
-            """)
-            .build()
-        return mat.buffer
+            """
+        )
+        .build()
+    return mat.buffer
 //        assets.openFd(assetName).use { fd ->
 //            val input = fd.createInputStream()
 //
@@ -420,5 +545,5 @@ class MapViewActivity : AppCompatActivity() {
 //
 //            return dst.apply { rewind() }
 //        }
-    }
+}
 }

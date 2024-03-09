@@ -14,7 +14,6 @@ import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.get
 import com.mag.slam3dvideo.databinding.ActivityVideoViewerBinding
 import com.mag.slam3dvideo.ui.components.VideoTimelineView
-import com.mag.slam3dvideo.utils.AndroidUtilities
 import com.mag.slam3dvideo.utils.AssetUtils
 import com.mag.slam3dvideo.utils.CancellationTokenSource
 import com.mag.slam3dvideo.utils.FileUtils

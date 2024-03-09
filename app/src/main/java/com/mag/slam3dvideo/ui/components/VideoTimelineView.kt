@@ -13,7 +13,6 @@ import android.graphics.PorterDuffXfermode
 import android.graphics.Rect
 import android.graphics.drawable.Drawable
 import android.media.MediaMetadataRetriever
-import android.os.AsyncTask
 import android.os.Build
 import android.os.Handler
 import android.os.Looper

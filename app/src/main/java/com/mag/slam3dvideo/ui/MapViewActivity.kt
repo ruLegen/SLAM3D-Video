@@ -3,10 +3,10 @@ package com.mag.slam3dvideo.ui
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.animation.ValueAnimator
-import android.app.Activity
 import android.opengl.Matrix
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.Choreographer
 import android.view.Surface
 import android.view.SurfaceView
@@ -19,12 +19,12 @@ import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.FilamentHelper
 import com.google.android.filament.android.UiHelper
 import com.google.android.filament.filamat.MaterialBuilder
-import com.google.android.filament.filamat.MaterialPackage
+import com.mag.slam3dvideo.utils.BufferQueue
+import com.mag.slam3dvideo.utils.TaskRunner
+import com.mag.slam3dvideo.utils.video.VideoFrameRetriever
 import java.lang.Math.*
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.nio.channels.Channels
-import kotlin.jvm.internal.Intrinsics.Kotlin
 
 class MapViewActivity : AppCompatActivity() {
     // Make sure to initialize Filament first
@@ -35,6 +35,15 @@ class MapViewActivity : AppCompatActivity() {
             MaterialBuilder.init()
         }
     }
+
+    private var bufferQueue: BufferQueue<Int>? = null
+    private var tr1: TaskRunner? = null
+    private var tr2: TaskRunner? = null
+
+    var file:String = "/storage/emulated/0/DCIM/Camera/PXL_20230318_132255477.mp4"
+
+    private var matInstance: MaterialInstance? = null
+
     // The View we want to render into
     private lateinit var surfaceView: SurfaceView
     // UiHelper is provided by Filament to manage SurfaceView and SurfaceTexture
@@ -72,20 +81,65 @@ class MapViewActivity : AppCompatActivity() {
 
     private val animator = ValueAnimator.ofFloat(0.0f, 360.0f)
 
+    private var videoRetriever: VideoFrameRetriever? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-
         surfaceView = SurfaceView(this)
         setContentView(surfaceView)
-
         choreographer = Choreographer.getInstance()
-
         displayHelper = DisplayHelper(this)
-
         setupSurfaceView()
         setupFilament()
         setupView()
         setupScene()
+        bufferQueue = BufferQueue(5)
+        tr1 = TaskRunner()
+        tr2 = TaskRunner()
+        tr1!!.executeAsync({
+            consume();
+        });
+        tr2!!.executeAsync({
+            produce();
+        })
+        //videoRetriever = VideoFrameRetriever(file);
+        //videoRetriever!!.initialize()
+        //val bitmap = videoRetriever?.getFrame(0)
+    }
+
+    private fun produce() {
+        var i = 0
+        while (true){
+            val b = bufferQueue!!.getBufferToProduce()
+            b?.value = i
+            Log.d("produced",i.toString())
+            i++
+            Thread.sleep(1000);
+            tr2!!.executeAsync({
+                produce();
+            })
+        }
+    }
+
+    private fun consume(){
+        while (true){
+            Thread.sleep(6000);
+            val b = bufferQueue!!.tryGetBufferToConsume()
+            if(b == null)
+            {
+                Thread.sleep(1000);
+                tr1!!.executeAsync({
+                    consume();
+                })
+                return
+            }
+            Log.d("consumed","Consumed " + b?.value.toString())
+            Thread.sleep(1000);
+            bufferQueue?.releaseConsumedBuffer(b!!)
+            tr1!!.executeAsync({
+                consume();
+            })
+        }
     }
     private fun setupSurfaceView() {
         uiHelper = UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK)
@@ -105,7 +159,7 @@ class MapViewActivity : AppCompatActivity() {
     }
 
     private fun setupView() {
-        scene.skybox = Skybox.Builder().color(0.035f, 0.035f, 0.035f, 1.0f).build(engine)
+        scene.skybox = Skybox.Builder().color(1.0f, 1f, 1f, 1.0f).build(engine)
 
         // post-processing is not supported at feature level 0
         view.isPostProcessingEnabled = false
@@ -122,8 +176,12 @@ class MapViewActivity : AppCompatActivity() {
         createMesh()
 
         // To create a renderable we first create a generic entity
-        renderable = EntityManager.get().create()
+        renderable =  EntityManager.get().create()
 
+        matInstance = material.createInstance()
+            .apply {
+                setParameter("baseColor",Colors.RgbaType.LINEAR ,1f,0f,0f,1f)
+            }
         // We then create a renderable component on that entity
         // A renderable is made of several primitives; in this case we declare only 1
         RenderableManager.Builder(1)
@@ -132,7 +190,7 @@ class MapViewActivity : AppCompatActivity() {
             // Sets the mesh data of the first primitive
             .geometry(0, PrimitiveType.TRIANGLES, vertexBuffer, indexBuffer, 0, 3)
             // Sets the material of the first primitive
-            .material(0, material.defaultInstance)
+            .material(0, matInstance!!)
             .build(engine, renderable)
 
         // Add the entity to the scene to render it
@@ -232,6 +290,7 @@ class MapViewActivity : AppCompatActivity() {
                 Matrix.setRotateM(transformMatrix, 0, -(a.animatedValue as Float), 0.0f, 0.0f, 1.0f)
                 val tcm = engine.transformManager
                 tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
+                matInstance?.setParameter("baseColor",Colors.RgbaType.LINEAR ,(a.currentPlayTime%5000)/5000f,0f,0f,1f)
             }
         })
         animator.start()
@@ -327,7 +386,7 @@ class MapViewActivity : AppCompatActivity() {
         }
 
         override fun onResized(width: Int, height: Int) {
-            val zoom = 1.5
+            val zoom = 2.0
             val aspect = width.toDouble() / height.toDouble()
             camera.setProjection(Camera.Projection.ORTHO,
                 -aspect * zoom, aspect * zoom, -zoom, zoom, 0.0, 10.0)
@@ -341,9 +400,16 @@ class MapViewActivity : AppCompatActivity() {
     private fun readUncompressedAsset(assetName: String): ByteBuffer {
         val mat = MaterialBuilder()
             .name("backed_color")
+            .uniformParameter(MaterialBuilder.UniformType.FLOAT4, "baseColor")
             .require(MaterialBuilder.VertexAttribute.COLOR)
             .platform(MaterialBuilder.Platform.MOBILE)
             .shading(MaterialBuilder.Shading.UNLIT)
+            .material("""
+               void material(inout MaterialInputs material) {
+                   prepareMaterial(material);
+                   material.baseColor =  materialParams.baseColor;
+               }
+            """)
             .build()
         return mat.buffer
 //        assets.openFd(assetName).use { fd ->

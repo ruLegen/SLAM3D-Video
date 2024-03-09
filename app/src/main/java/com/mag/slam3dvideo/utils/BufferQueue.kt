@@ -2,6 +2,13 @@ package com.mag.slam3dvideo.utils
 
 import java.util.UUID
 
+enum class QueueState {
+    Consumed,
+    Consuming,
+    Produced,
+    Producing,
+}
+
 class BufferQueueItem<T>(item: T?, guid: UUID = UUID.randomUUID()) {
     var value: T? = item
     var id = guid
@@ -9,102 +16,83 @@ class BufferQueueItem<T>(item: T?, guid: UUID = UUID.randomUUID()) {
 }
 
 class BufferQueue<T>(size: Int) {
-    var capacity: Int = 0
-    val canConsume: Boolean
-        get() = synchronized(lock) { !producedItems.isEmpty }
-    val canProduce: Boolean
-        get() = synchronized(lock) { !freeItems.isEmpty }
+    var capacity: Int = size
 
-    private var freeItems: RingBuffer<BufferQueueItem<T>>
-    private var producedItems: RingBuffer<BufferQueueItem<T>>
-    private var trackedItems: MutableMap<UUID, BufferQueueItem<T>>
+    private var trackedItems: MutableMap<UUID, BufferQueueItem<T>> = mutableMapOf()
+    private var queueStates: MutableMap<UUID, QueueState> = mutableMapOf()
     private val lock = Any()
     private val producerLock = Object()
     private val consumerLock = Object()
 
     init {
-        capacity = size
-        freeItems = RingBuffer(capacity)
-        producedItems = RingBuffer(capacity)
-        trackedItems = mutableMapOf()
-    }
-
-    fun tryGetBufferToProduce(): BufferQueueItem<T>? {
-        synchronized(lock) {
-            if (!canProduce && trackedItems.count() == capacity)
-                return null
-            if (freeItems.isEmpty) {
-                val item = BufferQueueItem<T>(null)
-                trackedItems.set(item.id, item)
-                producedItems.enqueue(item)
-                return item
-            } else {
-                val item =freeItems.dequeue()
-                producedItems.enqueue(item!!)
-                return item
-            }
+        for (i in 1.rangeTo(capacity)) {
+            val emptyItem = BufferQueueItem<T>(null)
+            trackedItems[emptyItem.id] = emptyItem;
+            queueStates[emptyItem.id] = QueueState.Consumed
         }
     }
 
     fun getBufferToProduce(): BufferQueueItem<T>? {
+        val getItem =
+            { queueStates.firstNotNullOfOrNull { item -> item.takeIf { it.value == QueueState.Consumed } } }
+        var item: Map.Entry<UUID, QueueState>?;
         synchronized(lock) {
-            if (freeItems.isEmpty && trackedItems.count() != capacity) {
-                val item = BufferQueueItem<T>(null)
-                trackedItems.set(item.id, item)
-                producedItems.enqueue(item)
-                return item
-            }
+            item = getItem()
         }
-        synchronized(producerLock){
-            if (!canProduce)
+        if (item == null) {
+            synchronized(producerLock) {
                 producerLock.wait()
-        }
-        synchronized(lock){
-            val item =  freeItems.dequeue()
-            producedItems.enqueue(item!!)
-            return item
-        }
-    }
-
-    fun tryGetBufferToConsume(): BufferQueueItem<T>? {
-        synchronized(lock) {
-            if (!canConsume)
-                return null
-            return producedItems.dequeue();
-        }
-    }
-    fun getBufferToConsume(): BufferQueueItem<T>? {
-        synchronized(lock) {
-            if (!canConsume){
-                synchronized(consumerLock){
-                    consumerLock.wait()
-                }
+                item = getItem()
             }
-            return producedItems.dequeue();
         }
-    }
-    fun tryReleaseProducedBuffer(item: BufferQueueItem<T>): Boolean {
         synchronized(lock) {
-            if (!trackedItems.containsKey(item.id))
-                return false
-            if (producedItems.isFull)
-                return false
-            producedItems.enqueue(item)
+            queueStates[item!!.key] = QueueState.Producing
+            return trackedItems[item!!.key]
         }
-        return true
     }
 
-    fun tryReleaseConsumedBuffer(item: BufferQueueItem<T>): Boolean {
+    fun getBufferToConsume(): BufferQueueItem<T>? {
+        val getItem =
+            { queueStates.firstNotNullOfOrNull { item -> item.takeIf { it.value == QueueState.Produced } } }
+        var item: Map.Entry<UUID, QueueState>?;
+        synchronized(lock) {
+            item = getItem()
+        }
+        if (item == null) {
+            synchronized(consumerLock) {
+                consumerLock.wait()
+                item = getItem()
+            }
+        }
+        synchronized(lock) {
+            queueStates[item!!.key] = QueueState.Consuming
+            return trackedItems[item!!.key]
+        }
+    }
+
+    fun releaseConsumedBuffer(item: BufferQueueItem<T>) {
         synchronized(lock) {
             if (!trackedItems.containsKey(item.id))
-                return false
-            if (freeItems.isFull)
-                return false
-            freeItems.enqueue(item)
-            synchronized(producerLock){
+                return
+            val state = queueStates[item.id]!!
+            assert(state == QueueState.Consuming) { "Cannot release consumed buffer, because state is ${state}" }
+            queueStates[item.id] = QueueState.Consumed
+            synchronized(producerLock) {
                 producerLock.notifyAll()
             }
         }
-        return true;
+    }
+
+    fun releaseProducedBuffer(item: BufferQueueItem<T>) {
+        synchronized(lock) {
+            if (!trackedItems.containsKey(item.id))
+                return
+            val state = queueStates[item.id]!!
+            assert(state == QueueState.Producing) { "Cannot release produced buffer, because state is ${state}" }
+            queueStates[item.id] = QueueState.Produced
+            synchronized(consumerLock) {
+                consumerLock.notifyAll()
+            }
+        }
     }
 }

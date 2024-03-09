@@ -20,6 +20,7 @@ import com.google.android.filament.android.FilamentHelper
 import com.google.android.filament.android.UiHelper
 import com.google.android.filament.filamat.MaterialBuilder
 import com.mag.slam3dvideo.utils.BufferQueue
+import com.mag.slam3dvideo.utils.BufferQueueItem
 import com.mag.slam3dvideo.utils.TaskRunner
 import com.mag.slam3dvideo.utils.video.VideoFrameRetriever
 import java.lang.Math.*
@@ -112,6 +113,7 @@ class MapViewActivity : AppCompatActivity() {
         while (true){
             val b = bufferQueue!!.getBufferToProduce()
             b?.value = i
+                bufferQueue!!.releaseProducedBuffer(b!!)
             Log.d("produced",i.toString())
             i++
             Thread.sleep(1000);
@@ -124,7 +126,7 @@ class MapViewActivity : AppCompatActivity() {
     private fun consume(){
         while (true){
             Thread.sleep(6000);
-            val b = bufferQueue!!.tryGetBufferToConsume()
+            val b = bufferQueue!!.getBufferToConsume()
             if(b == null)
             {
                 Thread.sleep(1000);

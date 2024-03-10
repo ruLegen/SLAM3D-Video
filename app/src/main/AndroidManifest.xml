@@ -32,10 +32,12 @@
         </activity>
         <activity
             android:name=".ui.MapViewActivity"
+            android:theme="@style/Theme.SLAM3DVideo.NoActionBar"
+            android:screenOrientation="userLandscape"
+
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
 

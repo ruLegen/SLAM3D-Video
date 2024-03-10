@@ -2,6 +2,7 @@ package com.mag.slam3dvideo.ui
 
 import android.animation.ValueAnimator
 import android.graphics.Bitmap
+import android.graphics.RectF
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -27,6 +28,7 @@ import com.google.android.filament.RenderableManager
 import com.google.android.filament.RenderableManager.PrimitiveType
 import com.google.android.filament.Renderer
 import com.google.android.filament.Scene
+import com.google.android.filament.Skybox
 import com.google.android.filament.SwapChain
 import com.google.android.filament.Texture
 import com.google.android.filament.Texture.PixelBufferDescriptor
@@ -38,16 +40,16 @@ import com.google.android.filament.View
 import com.google.android.filament.Viewport
 import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.FilamentHelper
-import com.google.android.filament.android.TextureHelper
 import com.google.android.filament.android.UiHelper
 import com.google.android.filament.filamat.MaterialBuilder
-import com.google.android.filament.utils.SKIP_BITMAP_COPY
 import com.mag.slam3dvideo.utils.AssetUtils
 import com.mag.slam3dvideo.utils.BufferQueue
 import com.mag.slam3dvideo.utils.TaskRunner
 import com.mag.slam3dvideo.utils.TextureUtils
+import com.mag.slam3dvideo.utils.bitmap.BitmapAlignment
+import com.mag.slam3dvideo.utils.bitmap.BitmapStretch
+import com.mag.slam3dvideo.utils.bitmap.getTransform
 import com.mag.slam3dvideo.utils.video.VideoFrameRetriever
-import java.lang.IllegalArgumentException
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.CountDownLatch
@@ -210,12 +212,27 @@ class MapViewActivity : AppCompatActivity() {
                     .sampler(Texture.Sampler.SAMPLER_2D)
                     .build(engine);
                 processTexture = newTexture
+//                view.viewport = Viewport(dstRect.left.toInt(),dstRect.top.toInt(),dstRect.width().toInt(),dstRect.height().toInt())
                 latch.countDown()
             })
             try {
                 latch.await()
             }catch (ex:Exception){}
         }
+
+        var surfaceRect = RectF(0f,0f,surfaceView.width.toFloat(),surfaceView.height.toFloat())
+        var dstRect = bitmap.getTransform(surfaceRect,BitmapStretch.AspectFit,BitmapAlignment.Center,BitmapAlignment.Center);
+        var tx = 0f//(dstRect.left-surfaceRect.left)/surfaceRect.width().toFloat()
+        var ty = 0f//(dstRect.top)/surfaceRect.height().toFloat()
+        tx = if(tx.isNaN() || !tx.isFinite()) 0f else tx
+        ty = if(ty.isNaN() || !ty.isFinite()) 0f else ty
+        val sx = dstRect.width()/surfaceRect.width()
+        val sy = dstRect.height()/surfaceRect.height()
+        val transformMatrix = FloatArray(16)
+        android.opengl.Matrix.setIdentityM(transformMatrix,0);
+        android.opengl.Matrix.translateM(transformMatrix,0,tx,ty,0f);
+        android.opengl.Matrix.scaleM(transformMatrix,0,sx,sy,1f);
+
         val format = TextureUtils.format(bitmap)
         val type = TextureUtils.type(bitmap)
 
@@ -230,6 +247,7 @@ class MapViewActivity : AppCompatActivity() {
             processTexture.setImage(engine, 0, newBuffer)
             videoTexture = processTexture
             matInstance?.setParameter("videoTexture", videoTexture, videoTextureSampler)
+            matInstance?.setParameter("vertexTransform",MaterialInstance.FloatElement.MAT4,transformMatrix,0,1)
             latch.countDown()
         }
         try {
@@ -263,12 +281,9 @@ private fun setupFilament() {
 }
 
 private fun setupView() {
-//        scene.skybox = Skybox.Builder().color(1.0f, 1f, 1f, 1.0f).build(engine)
-    // post-processing is not supported at feature level 0
+    scene.skybox = Skybox.Builder().color(1.0f, 1f, 1f, 1.0f).build(engine)
     view.isPostProcessingEnabled = false
-    // Tell the view which camera we want to use
     view.camera = camera
-    // Tell the view which scene we want to render
     view.scene = scene
 }
 
@@ -279,9 +294,6 @@ private fun setupScene() {
     // To create a renderable we first create a generic entity
     renderable = EntityManager.get().create()
     matInstance = material.createInstance()
-        .apply {
-            setParameter("baseColor", Colors.RgbaType.LINEAR, 1f, 0f, 0f, 1f)
-        }
     RenderableManager.Builder(1)
         .boundingBox(Box(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f))
         .geometry(0, PrimitiveType.TRIANGLES, vertexBuffer, indexBuffer, 0, indexBuffer.indexCount)
@@ -502,7 +514,6 @@ inner class SurfaceCallback : UiHelper.RendererCallback {
 //            camera.setProjection(Camera.Projection.ORTHO,-aspect * zoom, aspect * zoom, -zoom, zoom, 0.0, 10.0)
 
         view.viewport = Viewport(0, 0, width, height)
-
         FilamentHelper.synchronizePendingFrames(engine)
     }
 }
@@ -510,13 +521,13 @@ inner class SurfaceCallback : UiHelper.RendererCallback {
 private fun readUncompressedAsset(assetName: String): ByteBuffer {
     val mat = MaterialBuilder()
         .name("backed_color")
+        .uniformParameter(MaterialBuilder.UniformType.MAT4,"vertexTransform")
         .uniformParameter(MaterialBuilder.UniformType.FLOAT4, "baseColor")
         .samplerParameter(MaterialBuilder.SamplerType.SAMPLER_2D,MaterialBuilder.SamplerFormat.FLOAT,MaterialBuilder.ParameterPrecision.DEFAULT,"videoTexture")
 
         .require(MaterialBuilder.VertexAttribute.UV0)
         .platform(MaterialBuilder.Platform.MOBILE)
         .shading(MaterialBuilder.Shading.UNLIT)
-        .flipUV(true)
         .vertexDomain(MaterialBuilder.VertexDomain.DEVICE)
         // .depthWrite(false)
         .variantFilter(
@@ -524,6 +535,10 @@ private fun readUncompressedAsset(assetName: String): ByteBuffer {
                 .or(UserVariantFilterBit.VSM)
         )
         .culling(MaterialBuilder.CullingMode.NONE)
+        .materialVertex("""
+                void materialVertex(inout MaterialVertexInputs material) {
+                   material.clipSpaceTransform = materialParams.vertexTransform;
+                }""")
         .material(
             """
                void material(inout MaterialInputs material) {

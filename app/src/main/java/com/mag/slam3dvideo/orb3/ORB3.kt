@@ -1,6 +1,6 @@
 package com.mag.slam3dvideo.orb3
 
-class ORB3(val vocabFileName:String, val configFileName:String) {
+class ORB3(vocabFileName:String, configFileName:String) {
     open var ptr : Long = 0;
     init {
         System.loadLibrary("orbvideoslam")

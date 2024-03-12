@@ -1,5 +1,6 @@
 #include <jni.h>
 #include <System.h>
+#include <orb_slam_processor.h>
 
 extern "C"
 JNIEXPORT jlong JNICALL
@@ -11,11 +12,12 @@ Java_com_mag_slam3dvideo_orb3_ORB3_initOrb(JNIEnv *env, jobject thiz, jstring vo
     const char *configFileNameBytes = (env)->GetStringUTFChars(config_file_name, &isCopy);
     std::string vocabFile = vocabFileNameBytes;
     std::string configFile = configFileNameBytes;
+
+    auto *SLAM = new SLAMVideo::OrbSlamProcessor(vocabFile,configFile);
+
     env->ReleaseStringUTFChars(vocab_file_name,vocabFileNameBytes);
     env->ReleaseStringUTFChars(config_file_name,configFileNameBytes);
 
-
-    auto *SLAM = new ORB_SLAM3::System(vocabFile,configFile, ORB_SLAM3::System::MONOCULAR, false);
     return reinterpret_cast<jlong>(SLAM);
 }
 extern "C"

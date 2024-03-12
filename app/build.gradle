@@ -25,6 +25,7 @@ android {
             abiFilters 'arm64-v8a'
 //        abiFilters 'x86', 'x86_64', 'armeabi', 'armeabi-v7a','arm64-v8a'
         }
+        kotlin { jvmToolchain(21) }
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -45,11 +46,11 @@ android {
         dataBinding true
     }
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_1_8
-        targetCompatibility JavaVersion.VERSION_1_8
+        sourceCompatibility JavaVersion.VERSION_21
+        targetCompatibility JavaVersion.VERSION_21
     }
     kotlinOptions {
-        jvmTarget = '1.8'
+        jvmTarget = '21'
     }
 }
 

@@ -22,6 +22,7 @@ public:
     int width() const;
     int height() const;
     int vectorSize() const;
+    int format() const;
 };
 
 }

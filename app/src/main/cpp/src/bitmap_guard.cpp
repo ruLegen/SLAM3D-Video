@@ -41,4 +41,5 @@ uint8_t*BitmapGuard::get() const {
 int BitmapGuard::width() const { return info.width; }
 int BitmapGuard::height() const { return info.height; }
 int BitmapGuard::vectorSize() const { return bytesPerPixel; }
+int BitmapGuard::format() const {return info.format;}
 }

@@ -1,10 +1,11 @@
 #include <jni.h>
 #include <System.h>
 #include <orb_slam_processor.h>
+#include <bitmap_guard.h>
 
 extern "C"
 JNIEXPORT jlong JNICALL
-Java_com_mag_slam3dvideo_orb3_ORB3_initOrb(JNIEnv *env, jobject thiz, jstring vocab_file_name,
+Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_initOrb(JNIEnv *env, jobject thiz, jstring vocab_file_name,
                                            jstring config_file_name) {
 
     jboolean isCopy;
@@ -20,26 +21,50 @@ Java_com_mag_slam3dvideo_orb3_ORB3_initOrb(JNIEnv *env, jobject thiz, jstring vo
 
     return reinterpret_cast<jlong>(SLAM);
 }
-extern "C"
-JNIEXPORT void JNICALL
-Java_com_mag_slam3dvideo_orb3_ORB3_resaveVocabularyAsBinaryNative(JNIEnv *env, jobject thiz,
-                                                                  jstring text_vocab_input_path,
-                                                                  jstring binary_vocab_output_path) {
-    jboolean isCopy;
-    const char *vocabInputFileNameBytes = (env)->GetStringUTFChars(text_vocab_input_path, &isCopy);
-    const char *vocabOutputFileNameBytes = (env)->GetStringUTFChars(binary_vocab_output_path, &isCopy);
 
-    std::string vocabInFile = vocabInputFileNameBytes;
-    std::string vocabOutFile = vocabOutputFileNameBytes;
+extern "C" JNIEXPORT void JNICALL
+Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_processBitmap(JNIEnv *env, jobject thiz, jlong ptr,jobject bitmap) {
 
-    auto vocab = ORB_SLAM3::ORBVocabulary();
-    vocab.loadFromTextFile(vocabInFile);
-    vocab.saveToBinaryFile(vocabOutFile);
+    auto *processor = reinterpret_cast<SLAMVideo::OrbSlamProcessor*>(ptr);
+    if (processor == nullptr)
+      return ;
+    auto inputGuard = SLAMVideo::BitmapGuard(env, bitmap);
 
-
-
-    env->ReleaseStringUTFChars(text_vocab_input_path,vocabInputFileNameBytes);
-    env->ReleaseStringUTFChars(binary_vocab_output_path,vocabOutputFileNameBytes);
-
-
+    processor->processFrame(inputGuard);
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+//extern "C"
+//JNIEXPORT void JNICALL
+//Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_resaveVocabularyAsBinaryNative(JNIEnv *env, jobject thiz,
+//                                                                  jstring text_vocab_input_path,
+//                                                                  jstring binary_vocab_output_path) {
+//    jboolean isCopy;
+//    const char *vocabInputFileNameBytes = (env)->GetStringUTFChars(text_vocab_input_path, &isCopy);
+//    const char *vocabOutputFileNameBytes = (env)->GetStringUTFChars(binary_vocab_output_path, &isCopy);
+//
+//    std::string vocabInFile = vocabInputFileNameBytes;
+//    std::string vocabOutFile = vocabOutputFileNameBytes;
+//
+//    auto vocab = ORB_SLAM3::ORBVocabulary();
+//    vocab.loadFromTextFile(vocabInFile);
+//    vocab.saveToBinaryFile(vocabOutFile);
+//
+//
+//
+//    env->ReleaseStringUTFChars(text_vocab_input_path,vocabInputFileNameBytes);
+//    env->ReleaseStringUTFChars(binary_vocab_output_path,vocabOutputFileNameBytes);
+//
+//
+//}

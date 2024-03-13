@@ -10,6 +10,7 @@ import android.util.Log
 import android.view.Choreographer
 import android.view.Surface
 import android.view.SurfaceView
+import android.view.WindowManager
 import android.view.animation.LinearInterpolator
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -42,6 +43,7 @@ import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.FilamentHelper
 import com.google.android.filament.android.UiHelper
 import com.google.android.filament.filamat.MaterialBuilder
+import com.mag.slam3dvideo.orb3.OrbSlamProcessor
 import com.mag.slam3dvideo.utils.AssetUtils
 import com.mag.slam3dvideo.utils.BufferQueue
 import com.mag.slam3dvideo.utils.TaskRunner
@@ -65,10 +67,12 @@ class MapViewActivity : AppCompatActivity() {
             MaterialBuilder.init()
         }
     }
+
     private var videoTextureSampler: TextureSampler = TextureSampler(TextureSampler.MinFilter.LINEAR, TextureSampler.MagFilter.LINEAR,TextureSampler.WrapMode.REPEAT)
+    private lateinit var orbProcessor: OrbSlamProcessor
     private lateinit var frameBufferQueue: BufferQueue<Bitmap?>
     private var imageDecoderTaskRunner: TaskRunner? = null
-    private var textureUpdaterTaskRunner: TaskRunner? = null
+    private var frameProcessorTaskRunner: TaskRunner? = null
 
 //    var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20230318_132255477.mp4"
     var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240223_143249538.mp4"
@@ -132,6 +136,8 @@ class MapViewActivity : AppCompatActivity() {
         setContentView(surfaceView)
         choreographer = Choreographer.getInstance()
         displayHelper = DisplayHelper(this)
+        window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
+
         setupSurfaceView()
         setupFilament()
         setupView()
@@ -156,12 +162,14 @@ class MapViewActivity : AppCompatActivity() {
     private fun initVideoFrameGraber() {
         frameBufferQueue = BufferQueue(5)
         videoRetriever = VideoFrameRetriever(file);
+        val orbAssets = AssetUtils.getOrbFileAssets(this)
+        orbProcessor = OrbSlamProcessor(orbAssets.vocabFile,orbAssets.configFile)
         videoRetriever!!.initialize()
         imageDecoderTaskRunner = TaskRunner().apply {
             executeAsync({ decodeFrame(0) })
         }
-        textureUpdaterTaskRunner = TaskRunner().apply {
-            executeAsync({ updateTexture(0) })
+        frameProcessorTaskRunner = TaskRunner().apply {
+            executeAsync({ processFrame(0) })
         }
     }
 
@@ -176,7 +184,7 @@ class MapViewActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateTexture(retryNum: Int) {
+    private fun processFrame(retryNum: Int) {
         if (retryNum > 2)
             return
 
@@ -184,8 +192,8 @@ class MapViewActivity : AppCompatActivity() {
         val isValid = decodedBitmap!!.value != null
         if (!isValid) {
             frameBufferQueue.releaseConsumedBuffer(decodedBitmap)
-            textureUpdaterTaskRunner?.executeAsync({
-                updateTexture(retryNum + 1)
+            frameProcessorTaskRunner?.executeAsync({
+                processFrame(retryNum + 1)
             })
             return
         }
@@ -239,6 +247,7 @@ class MapViewActivity : AppCompatActivity() {
         val buffer = ByteBuffer.allocateDirect(bitmap.byteCount)
         bitmap.copyPixelsToBuffer(buffer)
         buffer.flip()
+        orbProcessor.processFrame(bitmap)
         bitmap.recycle()
 
         val latch = CountDownLatch(1)
@@ -254,8 +263,8 @@ class MapViewActivity : AppCompatActivity() {
             latch.await()
         }catch (ex:Exception){}
         frameBufferQueue.releaseConsumedBuffer(decodedBitmap)
-        textureUpdaterTaskRunner?.executeAsync({
-            updateTexture(0)
+        frameProcessorTaskRunner?.executeAsync({
+            processFrame(0)
         })
     }
 

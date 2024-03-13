@@ -2,16 +2,19 @@ package com.mag.slam3dvideo.utils
 
 import android.Manifest
 import android.app.Activity
+import android.content.Context
 import android.content.pm.PackageManager
 import android.os.Build
 import android.util.Log
 import androidx.annotation.RequiresApi
 import androidx.core.app.ActivityCompat
+import com.mag.slam3dvideo.ui.AssetFiles
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.io.InputStream
 import java.io.OutputStream
+import java.nio.file.Paths
 import java.security.MessageDigest
 import java.util.*
 import kotlin.experimental.and
@@ -125,6 +128,21 @@ class AssetUtils {
                 Log.d(TAG,e.message!!);
             }
             return null
+        }
+
+        fun getOrbFileAssets(context:Context) : AssetFiles{
+            val vocabAssetName = "Vocabulary/ORBvoc.bin"
+            val cameraParamsAssetName = "Calibration/PARAconfig.yaml"
+            val assets = context.assets;
+            val vocabInputStream = assets.open(vocabAssetName)
+            val calibInputStream = assets.open(cameraParamsAssetName)
+            val baseDir = context.filesDir.toString()
+            val outVocab = Paths.get(baseDir ,"voc.bin").toString()
+            val outConfig = Paths.get(baseDir ,"config.yaml").toString()
+            createFileFromInputStream(outVocab, vocabInputStream)
+            createFileFromInputStream(outConfig, calibInputStream)
+
+            return AssetFiles(outVocab, outConfig)
         }
     }
 }

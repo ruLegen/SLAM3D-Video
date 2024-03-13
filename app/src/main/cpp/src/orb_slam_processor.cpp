@@ -9,7 +9,7 @@ OrbSlamProcessor::OrbSlamProcessor(const std::string &vocabFilePath,
                                    const std::string &configFilePath)
     : mOrbSlamSystem(vocabFilePath, configFilePath,
                      ORB_SLAM3::System::MONOCULAR, false) {}
-void OrbSlamProcessor::processFrame(BitmapGuard &bitmapGuard) {
+int OrbSlamProcessor::processFrame(BitmapGuard &bitmapGuard) {
   uint8_t *bitmapPtr = bitmapGuard.get();
   int32_t bitmapFormat = bitmapGuard.format();
 
@@ -28,29 +28,6 @@ void OrbSlamProcessor::processFrame(BitmapGuard &bitmapGuard) {
 
   double frameTime = 0;
   mOrbSlamSystem.TrackMonocular(mat, frameTime, imuData, "");
-  auto state = static_cast<TrackingState>(mOrbSlamSystem.GetTrackingState());
-  switch (state) {
-  case TrackingState::SYSTEM_NOT_READY:
-    LOGI("TrackingState::SYSTEM_NOT_READY");
-    break;
-  case TrackingState::NO_IMAGES_YET:
-    LOGI("TrackingState::NO_IMAGES_YET");
-    break;
-  case TrackingState::NOT_INITIALIZED:
-    LOGI("TrackingState::NOT_INITIALIZED");
-    break;
-  case TrackingState::OK:
-    LOGI("TrackingState::OK");
-    break;
-  case TrackingState::RECENTLY_LOST:
-    LOGI("TrackingState::RECENTLY_LOST");
-    break;
-  case TrackingState::LOST:
-    LOGI("TrackingState::LOST");
-    break;
-  case TrackingState::OK_KLT:
-    LOGI("TrackingState::OK_KLT");
-    break;
-  }
+  return mOrbSlamSystem.GetTrackingState();
 }
 } // namespace SLAMVideo

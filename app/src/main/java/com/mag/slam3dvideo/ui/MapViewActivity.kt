@@ -247,7 +247,7 @@ class MapViewActivity : AppCompatActivity() {
         val buffer = ByteBuffer.allocateDirect(bitmap.byteCount)
         bitmap.copyPixelsToBuffer(buffer)
         buffer.flip()
-        orbProcessor.processFrame(bitmap)
+        Log.w("tag", orbProcessor.processFrame(bitmap).toString())
         bitmap.recycle()
 
         val latch = CountDownLatch(1)

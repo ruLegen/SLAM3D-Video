@@ -9,7 +9,7 @@ class OrbSlamProcessor {
 public:
   OrbSlamProcessor(const std::string& vocabFilePath,const std::string& configFilePath);
 
-  void processFrame(SLAMVideo::BitmapGuard &bitmapGuard);
+  int processFrame(SLAMVideo::BitmapGuard &bitmapGuard);
 
 private:
   ORB_SLAM3::System mOrbSlamSystem;

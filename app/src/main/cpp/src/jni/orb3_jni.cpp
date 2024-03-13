@@ -22,15 +22,16 @@ Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_initOrb(JNIEnv *env, jobject thiz
     return reinterpret_cast<jlong>(SLAM);
 }
 
-extern "C" JNIEXPORT void JNICALL
+extern "C" JNIEXPORT jint JNICALL
 Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_processBitmap(JNIEnv *env, jobject thiz, jlong ptr,jobject bitmap) {
 
     auto *processor = reinterpret_cast<SLAMVideo::OrbSlamProcessor*>(ptr);
     if (processor == nullptr)
-      return ;
+      return -1;
     auto inputGuard = SLAMVideo::BitmapGuard(env, bitmap);
 
-    processor->processFrame(inputGuard);
+    int trackingState = processor->processFrame(inputGuard);
+    return trackingState;
 }
 
 

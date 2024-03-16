@@ -44,6 +44,7 @@ import com.google.android.filament.android.FilamentHelper
 import com.google.android.filament.android.UiHelper
 import com.google.android.filament.filamat.MaterialBuilder
 import com.mag.slam3dvideo.orb3.OrbSlamProcessor
+import com.mag.slam3dvideo.orb3.TrackingState
 import com.mag.slam3dvideo.utils.AssetUtils
 import com.mag.slam3dvideo.utils.BufferQueue
 import com.mag.slam3dvideo.utils.TaskRunner
@@ -52,6 +53,7 @@ import com.mag.slam3dvideo.utils.bitmap.BitmapAlignment
 import com.mag.slam3dvideo.utils.bitmap.BitmapStretch
 import com.mag.slam3dvideo.utils.bitmap.getTransform
 import com.mag.slam3dvideo.utils.video.VideoFrameRetriever
+import org.opencv.android.OpenCVLoader
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import java.util.concurrent.CountDownLatch
@@ -63,7 +65,7 @@ class MapViewActivity : AppCompatActivity() {
     companion object {
         init {
             Filament.init()
-
+            OpenCVLoader.initDebug()
             MaterialBuilder.init()
         }
     }
@@ -247,7 +249,11 @@ class MapViewActivity : AppCompatActivity() {
         val buffer = ByteBuffer.allocateDirect(bitmap.byteCount)
         bitmap.copyPixelsToBuffer(buffer)
         buffer.flip()
-        Log.w("tag", orbProcessor.processFrame(bitmap).toString())
+        val state = orbProcessor.processFrame(bitmap)
+        if(state == TrackingState.OK){
+            val keys = orbProcessor.getCurrentFrameKeyPoints()
+            val i =0;
+        }
         bitmap.recycle()
 
         val latch = CountDownLatch(1)

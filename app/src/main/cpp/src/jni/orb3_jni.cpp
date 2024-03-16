@@ -2,10 +2,12 @@
 #include <System.h>
 #include <orb_slam_processor.h>
 #include <bitmap_guard.h>
+#include <algorithm>
+#include <opencv2/core/eigen.hpp>
 
 extern "C"
 JNIEXPORT jlong JNICALL
-Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_initOrb(JNIEnv *env, jobject thiz, jstring vocab_file_name,
+Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nInitOrb(JNIEnv *env, jobject thiz, jstring vocab_file_name,
                                            jstring config_file_name) {
 
     jboolean isCopy;
@@ -23,49 +25,54 @@ Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_initOrb(JNIEnv *env, jobject thiz
 }
 
 extern "C" JNIEXPORT jint JNICALL
-Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_processBitmap(JNIEnv *env, jobject thiz, jlong ptr,jobject bitmap) {
+Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nProcessBitmap(JNIEnv *env, jobject thiz, jlong ptr,jobject bitmap) {
 
     auto *processor = reinterpret_cast<SLAMVideo::OrbSlamProcessor*>(ptr);
     if (processor == nullptr)
       return -1;
     auto inputGuard = SLAMVideo::BitmapGuard(env, bitmap);
-
     int trackingState = processor->processFrame(inputGuard);
     return trackingState;
 }
 
+extern "C" JNIEXPORT jlongArray
+Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nGetMapPointsPositions(JNIEnv *env, jobject thiz, jlong ptr) {
+    auto *processor = reinterpret_cast<SLAMVideo::OrbSlamProcessor*>(ptr);
+    if (processor == nullptr)
+      return 0;
 
+    std::vector<ORB_SLAM3::MapPoint*> mapPoints = processor->getMapPoints();
+    auto matPointers = std::vector<long>();
+    for(auto matPtr:mapPoints){
+      if(matPtr == NULL)
+        continue ;
+      auto* cvMat = new cv::Mat();
+      cv::eigen2cv(matPtr->GetWorldPos(),*cvMat);
+      matPointers.push_back(reinterpret_cast<long>(cvMat));
+    }
+    jlongArray longJavaArray = env->NewLongArray(matPointers.size());
+    env->SetLongArrayRegion(longJavaArray,0,matPointers.size(),matPointers.data());
+    return  longJavaArray;
+}
 
+extern "C" JNIEXPORT jfloatArray
+Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nGetCurrentFrameKeyPoints(JNIEnv *env, jobject thiz, jlong ptr) {
+    static int numberOfKeyPointMembers =2; //keep in sync with OrbSlamProcessor.kt
 
+    auto *processor = reinterpret_cast<SLAMVideo::OrbSlamProcessor*>(ptr);
+    if (processor == nullptr)
+      return 0;
+    std::vector<cv::KeyPoint> keyPoints = processor->getCurrentKeyPoints();
+    if(keyPoints.size() == 0)
+      return 0;
 
-
-
-
-
-
-
-
-
-//extern "C"
-//JNIEXPORT void JNICALL
-//Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_resaveVocabularyAsBinaryNative(JNIEnv *env, jobject thiz,
-//                                                                  jstring text_vocab_input_path,
-//                                                                  jstring binary_vocab_output_path) {
-//    jboolean isCopy;
-//    const char *vocabInputFileNameBytes = (env)->GetStringUTFChars(text_vocab_input_path, &isCopy);
-//    const char *vocabOutputFileNameBytes = (env)->GetStringUTFChars(binary_vocab_output_path, &isCopy);
-//
-//    std::string vocabInFile = vocabInputFileNameBytes;
-//    std::string vocabOutFile = vocabOutputFileNameBytes;
-//
-//    auto vocab = ORB_SLAM3::ORBVocabulary();
-//    vocab.loadFromTextFile(vocabInFile);
-//    vocab.saveToBinaryFile(vocabOutFile);
-//
-//
-//
-//    env->ReleaseStringUTFChars(text_vocab_input_path,vocabInputFileNameBytes);
-//    env->ReleaseStringUTFChars(binary_vocab_output_path,vocabOutputFileNameBytes);
-//
-//
-//}
+    std::vector<float> unpackedKeyPoints;
+    unpackedKeyPoints.reserve(keyPoints.size()*numberOfKeyPointMembers);
+    for(const auto& kp:keyPoints){
+      unpackedKeyPoints.push_back(kp.pt.x);
+      unpackedKeyPoints.push_back(kp.pt.y);
+    }
+    jfloatArray floatArray = env->NewFloatArray(unpackedKeyPoints.size());
+    env->SetFloatArrayRegion(floatArray,0,unpackedKeyPoints.size(),unpackedKeyPoints.data());
+    return floatArray;
+}

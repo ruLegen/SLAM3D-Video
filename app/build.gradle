@@ -69,6 +69,7 @@ dependencies {
     implementation files('libs/filament-android-debug.aar')
     implementation files('libs/filamat-v1.50.0-android.aar')
     implementation files('libs/filament-utils-android-debug.aar')
+    implementation project(':sdk')
     testImplementation 'junit:junit:4.13.2'
     androidTestImplementation 'androidx.test.ext:junit:1.1.5'
     androidTestImplementation 'androidx.test.espresso:espresso-core:3.5.1'

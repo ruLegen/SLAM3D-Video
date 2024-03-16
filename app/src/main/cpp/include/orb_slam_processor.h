@@ -11,6 +11,10 @@ public:
 
   int processFrame(SLAMVideo::BitmapGuard &bitmapGuard);
 
+  vector<ORB_SLAM3::MapPoint *> getMapPoints();
+
+  std::vector<cv::KeyPoint> getCurrentKeyPoints();
+
 private:
   ORB_SLAM3::System mOrbSlamSystem;
 };

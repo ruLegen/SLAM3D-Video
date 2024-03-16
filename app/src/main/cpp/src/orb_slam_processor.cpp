@@ -30,4 +30,10 @@ int OrbSlamProcessor::processFrame(BitmapGuard &bitmapGuard) {
   mOrbSlamSystem.TrackMonocular(mat, frameTime, imuData, "");
   return mOrbSlamSystem.GetTrackingState();
 }
+vector<ORB_SLAM3::MapPoint *> OrbSlamProcessor::getMapPoints() {
+  return mOrbSlamSystem.GetTrackedMapPoints();
+}
+vector<cv::KeyPoint> OrbSlamProcessor::getCurrentKeyPoints() {
+  return mOrbSlamSystem.GetTrackedKeyPointsUn();
+}
 } // namespace SLAMVideo

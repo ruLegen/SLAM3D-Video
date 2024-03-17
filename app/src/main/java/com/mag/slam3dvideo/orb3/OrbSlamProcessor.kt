@@ -31,10 +31,18 @@ class OrbSlamProcessor(vocabFileName: String, configFileName: String) {
         ptr = nInitOrb(vocabFileName, configFileName);
     }
 
-    fun processFrame(bitmap: Bitmap): TrackingState {
-        val intState = nProcessBitmap(ptr, bitmap)
-        return TrackingState.fromInt(intState)
+    fun processFrame(bitmap: Bitmap): MatShared? {
+        val tcwMatrix = nProcessBitmap(ptr, bitmap)
+        if(tcwMatrix == 0L)
+            return  null
+        return MatShared(tcwMatrix,true)
     }
+    fun getTrackingState():TrackingState{
+        var nativeTrackingState :Int = nGetTrackingState(ptr)
+        return TrackingState.fromInt(nativeTrackingState);
+    }
+
+
     fun getMapPoints(): List<MatShared> {
         val ptrs = nGetMapPointsPositions(ptr)
         if (ptrs == null || ptrs.size == 0)
@@ -59,8 +67,9 @@ class OrbSlamProcessor(vocabFileName: String, configFileName: String) {
     }
     private external fun nGetMapPointsPositions(ptr: Long): LongArray?
     private external fun nGetCurrentFrameKeyPoints(ptr: Long): FloatArray?
+    private external fun nGetTrackingState(ptr: Long): Int
 
-    private external fun nProcessBitmap(ptr: Long, bitmap: Bitmap): Int
+    private external fun nProcessBitmap(ptr: Long, bitmap: Bitmap): Long
     private external fun nInitOrb(vocabFileName: String, configFileName: String): Long
 
 

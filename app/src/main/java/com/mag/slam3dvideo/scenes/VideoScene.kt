@@ -1,9 +1,10 @@
-package com.mag.slam3dvideo.render
+package com.mag.slam3dvideo.scenes
 
 import android.graphics.Bitmap
 import android.graphics.RectF
 import android.os.Handler
 import android.os.Looper
+import android.util.SizeF
 import android.view.SurfaceView
 import com.google.android.filament.Box
 import com.google.android.filament.Camera
@@ -21,6 +22,7 @@ import com.google.android.filament.TextureSampler
 import com.google.android.filament.VertexBuffer
 import com.google.android.filament.View
 import com.google.android.filament.filamat.MaterialBuilder
+import com.mag.slam3dvideo.utils.MathHelpers
 import com.mag.slam3dvideo.utils.TextureUtils
 import com.mag.slam3dvideo.utils.bitmap.BitmapAlignment
 import com.mag.slam3dvideo.utils.bitmap.BitmapStretch
@@ -30,6 +32,12 @@ import java.nio.ByteOrder
 import java.util.concurrent.CountDownLatch
 
 class VideoScene(private val surfaceView: SurfaceView) : OrbScene {
+    var drawingRect: RectF = RectF()
+        private set
+    var bitmapStretch: BitmapStretch = BitmapStretch.AspectFit
+        private  set
+    var bitmapSize:SizeF = SizeF(0f,0f)
+        private set
     private lateinit var scene: Scene
     private lateinit var camera: Camera
     private var matInstance: MaterialInstance? = null
@@ -152,11 +160,17 @@ class VideoScene(private val surfaceView: SurfaceView) : OrbScene {
             return this
         }
 
+        /* (0,0)
+         * |--------|
+         * |        |
+         * |        |
+         * |________| (1,1)
+         */
         var verticies = arrayOf(
-            Vertex(1f, 1.0f, 0.0f, 1f, 1f, 1f),
-            Vertex(-1f, 1f, 0.0f, 1f, 0f, 1f),
-            Vertex(-1f, -1f, 0.0f, 1f, 0f, 0f),
-            Vertex(1f, -1f, 0.0f, 1f, 1f, 0f)
+            Vertex(1f, 0.0f, 0.0f, 1f, 1f, 1f),
+            Vertex(0f, 0f, 0.0f, 1f, 0f, 1f),
+            Vertex(0f, 1f, 0.0f, 1f, 0f, 0f),
+            Vertex(1f, 1f, 0.0f, 1f, 1f, 0f)
         )
 
         val vertexData = ByteBuffer.allocate(verticies.size * vertexSize)
@@ -214,10 +228,13 @@ class VideoScene(private val surfaceView: SurfaceView) : OrbScene {
     }
 
     fun processBitmap(bitmap: Bitmap) {
-        val w = videoTexture.getWidth(0)
-        val h = videoTexture.getHeight(0)
+        bitmapSize = SizeF(bitmap.width.toFloat(),bitmap.height.toFloat())
+
+        val textureW = videoTexture.getWidth(0)
+        val textureH = videoTexture.getHeight(0)
         var processTexture = videoTexture
-        if (w != bitmap.width || h != bitmap.height) {
+
+        if (textureW != bitmap.width || textureH != bitmap.height) {
             val latch = CountDownLatch(1)
             handler.post(Runnable { // Code to run on the UI thread
                 val newTexture = Texture.Builder()
@@ -238,20 +255,22 @@ class VideoScene(private val surfaceView: SurfaceView) : OrbScene {
         }
 
         var surfaceRect = RectF(0f, 0f, surfaceView.width.toFloat(), surfaceView.height.toFloat())
-        var dstRect = bitmap.getTransform(
+        drawingRect = bitmap.getTransform(
             surfaceRect,
-            BitmapStretch.AspectFit,
+            bitmapStretch,
             BitmapAlignment.Center,
             BitmapAlignment.Center
-        );
-        var tx = 0f//(dstRect.left-surfaceRect.left)/surfaceRect.width().toFloat()
-        var ty = 0f//(dstRect.top)/surfaceRect.height().toFloat()
+        )
+
+        var tx = MathHelpers.map(drawingRect.left,0f,surfaceRect.width(),0f,1f)
+        var ty = MathHelpers.map(drawingRect.top,0f,surfaceRect.height(),0f,1f)
         tx = if (tx.isNaN() || !tx.isFinite()) 0f else tx
         ty = if (ty.isNaN() || !ty.isFinite()) 0f else ty
-        val sx = dstRect.width() / surfaceRect.width()
-        val sy = dstRect.height() / surfaceRect.height()
+        val sx = drawingRect.width() / surfaceRect.width()
+        val sy = drawingRect.height() / surfaceRect.height()
         val transformMatrix = FloatArray(16)
         android.opengl.Matrix.setIdentityM(transformMatrix, 0);
+        android.opengl.Matrix.orthoM(transformMatrix, 0, 0f, 1f, 1f,0f,-1f,1f);
         android.opengl.Matrix.translateM(transformMatrix, 0, tx, ty, 0f);
         android.opengl.Matrix.scaleM(transformMatrix, 0, sx, sy, 1f);
 
@@ -281,7 +300,6 @@ class VideoScene(private val surfaceView: SurfaceView) : OrbScene {
         } catch (ex: Exception) {
         }
     }
-
     private fun generateMaterial(): ByteBuffer {
         val mat = MaterialBuilder()
             .name("backed_color")

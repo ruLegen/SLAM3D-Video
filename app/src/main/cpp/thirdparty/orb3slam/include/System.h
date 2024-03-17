@@ -177,6 +177,8 @@ public:
     std::vector<MapPoint*> GetTrackedMapPoints();
     std::vector<cv::KeyPoint> GetTrackedKeyPointsUn();
 
+    Tracking* GetTracking();
+
     // For debugging
     double GetTimeFromIMUInit();
     bool isLost();

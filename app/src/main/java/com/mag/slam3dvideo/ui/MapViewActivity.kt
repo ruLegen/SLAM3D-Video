@@ -13,7 +13,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.filament.Engine
 import com.google.android.filament.Filament
-import com.google.android.filament.Material.UserVariantFilterBit
 import com.google.android.filament.Renderer
 import com.google.android.filament.SwapChain
 import com.google.android.filament.View
@@ -24,13 +23,15 @@ import com.google.android.filament.android.UiHelper
 import com.google.android.filament.filamat.MaterialBuilder
 import com.mag.slam3dvideo.orb3.OrbSlamProcessor
 import com.mag.slam3dvideo.orb3.TrackingState
-import com.mag.slam3dvideo.render.VideoScene
+import com.mag.slam3dvideo.scenes.KeypointsScene
+import com.mag.slam3dvideo.scenes.ObjectScene
+import com.mag.slam3dvideo.scenes.OrbScene
+import com.mag.slam3dvideo.scenes.VideoScene
 import com.mag.slam3dvideo.utils.AssetUtils
 import com.mag.slam3dvideo.utils.BufferQueue
 import com.mag.slam3dvideo.utils.TaskRunner
 import com.mag.slam3dvideo.utils.video.VideoFrameRetriever
 import org.opencv.android.OpenCVLoader
-import java.nio.ByteBuffer
 
 
 class MapViewActivity : AppCompatActivity() {
@@ -74,6 +75,8 @@ class MapViewActivity : AppCompatActivity() {
     private val animator = ValueAnimator.ofFloat(0.0f, 360.0f)
     private var videoRetriever: VideoFrameRetriever? = null
     private lateinit var videoScene: VideoScene;
+    private lateinit var keypointsScene: KeypointsScene
+    private lateinit var objectScene: ObjectScene
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -124,10 +127,12 @@ class MapViewActivity : AppCompatActivity() {
 
     }
     private fun setupScenes() {
-        videoScene = VideoScene(surfaceView).apply {
-            init(engine)
-            activate(view)
-        }
+        videoScene = VideoScene(surfaceView)
+        keypointsScene = KeypointsScene(surfaceView)
+        objectScene = ObjectScene(surfaceView)
+
+        allScenes().forEach { it.init(engine) }
+
         startAnimation()
     }
 
@@ -139,6 +144,7 @@ class MapViewActivity : AppCompatActivity() {
         animator.repeatCount = ValueAnimator.INFINITE
         animator.addUpdateListener(object : ValueAnimator.AnimatorUpdateListener {
             override fun onAnimationUpdate(a: ValueAnimator) {
+                keypointsScene.updateTransform()
 //                Matrix.setRotateM(transformMatrix, 0, -(a.animatedValue as Float), 0.0f, 0.0f, 1.0f)
 //                val tcm = engine.transformManager
 //                tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
@@ -197,12 +203,15 @@ class MapViewActivity : AppCompatActivity() {
         if (channels == -1)
             throw Exception("Unsupported bitmap mode ${bitmap.config}")
 
-        val state = orbProcessor.processFrame(bitmap)
+        videoScene.processBitmap(bitmap)
+        val tcw = orbProcessor.processFrame(bitmap)
+        val state = orbProcessor.getTrackingState()
         if (state == TrackingState.OK) {
             val keys = orbProcessor.getCurrentFrameKeyPoints()
-            val i = 0;
+            keypointsScene.updateKeypoints(keys)
         }
-        videoScene.processBitmap(bitmap)
+        keypointsScene.drawingRect = videoScene.drawingRect
+        keypointsScene.setBitmapInfo(videoScene.bitmapStretch,videoScene.bitmapSize)
 
         bitmap.recycle()
         frameBufferQueue.releaseConsumedBuffer(decodedBitmap)
@@ -247,6 +256,9 @@ class MapViewActivity : AppCompatActivity() {
         engine.destroy()
     }
 
+    fun  allScenes():Array<OrbScene>{
+        return  arrayOf(videoScene,keypointsScene,objectScene)
+    }
     inner class FrameCallback : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             // Schedule the next frame
@@ -256,9 +268,11 @@ class MapViewActivity : AppCompatActivity() {
             if (uiHelper.isReadyToRender) {
                 // If beginFrame() returns false you should skip the frame
                 // This means you are sending frames too quickly to the GPU
-
                 if (renderer.beginFrame(swapChain!!, frameTimeNanos)) {
-                    renderer.render(view)
+                    allScenes().forEach {
+                        it.activate(view)
+                        renderer.render(view)
+                    }
                     renderer.endFrame()
                 }
             }

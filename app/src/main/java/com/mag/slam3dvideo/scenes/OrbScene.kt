@@ -1,4 +1,4 @@
-package com.mag.slam3dvideo.render
+package com.mag.slam3dvideo.scenes
 
 import com.google.android.filament.Engine
 import com.google.android.filament.View

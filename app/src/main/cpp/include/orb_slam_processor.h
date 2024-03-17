@@ -9,7 +9,9 @@ class OrbSlamProcessor {
 public:
   OrbSlamProcessor(const std::string& vocabFilePath,const std::string& configFilePath);
 
-  int processFrame(SLAMVideo::BitmapGuard &bitmapGuard);
+  cv::Mat* processFrame(SLAMVideo::BitmapGuard &bitmapGuard);
+
+  int getTrackingState(){return mOrbSlamSystem.GetTrackingState();};
 
   vector<ORB_SLAM3::MapPoint *> getMapPoints();
 

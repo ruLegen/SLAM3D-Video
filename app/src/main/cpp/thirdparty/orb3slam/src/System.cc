@@ -1571,5 +1571,6 @@ string System::CalculateCheckSum(string filename, int type) {
 
     return checksum;
 }
+Tracking *System::GetTracking() { return mpTracker;  }
 
 }  // namespace ORB_SLAM3

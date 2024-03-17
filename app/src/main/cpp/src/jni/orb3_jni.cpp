@@ -24,15 +24,15 @@ Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nInitOrb(JNIEnv *env, jobject thi
     return reinterpret_cast<jlong>(SLAM);
 }
 
-extern "C" JNIEXPORT jint JNICALL
+extern "C" JNIEXPORT jlong JNICALL
 Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nProcessBitmap(JNIEnv *env, jobject thiz, jlong ptr,jobject bitmap) {
 
     auto *processor = reinterpret_cast<SLAMVideo::OrbSlamProcessor*>(ptr);
     if (processor == nullptr)
-      return -1;
+      return 0;
     auto inputGuard = SLAMVideo::BitmapGuard(env, bitmap);
-    int trackingState = processor->processFrame(inputGuard);
-    return trackingState;
+    cv::Mat* Tcw = processor->processFrame(inputGuard);
+    return reinterpret_cast<long>(Tcw);
 }
 
 extern "C" JNIEXPORT jlongArray
@@ -75,4 +75,12 @@ Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nGetCurrentFrameKeyPoints(JNIEnv 
     jfloatArray floatArray = env->NewFloatArray(unpackedKeyPoints.size());
     env->SetFloatArrayRegion(floatArray,0,unpackedKeyPoints.size(),unpackedKeyPoints.data());
     return floatArray;
+}
+
+extern "C" JNIEXPORT jint
+Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nGetTrackingState(JNIEnv *env, jobject thiz, jlong ptr) {
+    auto *processor = reinterpret_cast<SLAMVideo::OrbSlamProcessor*>(ptr);
+    if (processor == nullptr)
+      return 0;
+    return processor->getTrackingState();
 }

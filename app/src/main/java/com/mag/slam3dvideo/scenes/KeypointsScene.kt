@@ -76,7 +76,7 @@ class KeypointsScene(private val surfaceView: SurfaceView) :OrbScene{
     }
     private fun generateMaterial(): ByteBuffer {
         val mat = MaterialBuilder()
-            .name("backed_color")
+            .name("points_material")
             .uniformParameter(MaterialBuilder.UniformType.MAT4, "vertexTransform")
             .uniformParameter(MaterialBuilder.UniformType.FLOAT, "size")
             .platform(MaterialBuilder.Platform.MOBILE)

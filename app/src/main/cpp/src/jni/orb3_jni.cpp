@@ -84,3 +84,12 @@ Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nGetTrackingState(JNIEnv *env, jo
       return 0;
     return processor->getTrackingState();
 }
+
+extern "C" JNIEXPORT jlong
+Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nDetectPlane(JNIEnv *env, jobject thiz, jlong ptr) {
+    auto *processor = reinterpret_cast<SLAMVideo::OrbSlamProcessor*>(ptr);
+    if (processor == nullptr)
+      return 0;
+    SLAMVideo::Plane* plane =  processor->detectPlane(50);
+    return reinterpret_cast<long>(plane);
+}

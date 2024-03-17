@@ -3,6 +3,8 @@
 
 #include "bitmap_guard.h"
 #include <System.h>
+#include <plane.h>
+
 namespace SLAMVideo {
 class OrbSlamProcessor {
 
@@ -16,6 +18,7 @@ public:
   vector<ORB_SLAM3::MapPoint *> getMapPoints();
 
   std::vector<cv::KeyPoint> getCurrentKeyPoints();
+  Plane* detectPlane(int iterations);
 
 private:
   ORB_SLAM3::System mOrbSlamSystem;

@@ -43,7 +43,7 @@ class ObjectScene(private val surfaceView:SurfaceView) :OrbScene{
         renderable = EntityManager.get().create()
         RenderableManager.Builder(1)
             .boundingBox(Box(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f))
-            .geometry(0, RenderableManager.PrimitiveType.POINTS,vertexBuffer,indexBuffer)
+            .geometry(0, RenderableManager.PrimitiveType.TRIANGLE_STRIP,vertexBuffer,indexBuffer)
             .material(0, matInstance!!)
             .culling(false)
             .build(engine, renderable)
@@ -68,31 +68,16 @@ class ObjectScene(private val surfaceView:SurfaceView) :OrbScene{
     }
     private fun generateMaterial(): ByteBuffer {
         val mat = MaterialBuilder()
-            .name("backed_color")
-            .uniformParameter(MaterialBuilder.UniformType.MAT4, "vertexTransform")
-            .uniformParameter(MaterialBuilder.UniformType.FLOAT, "size")
+            .name("mesh_material")
+            .require(MaterialBuilder.VertexAttribute.COLOR)
             .platform(MaterialBuilder.Platform.MOBILE)
             .shading(MaterialBuilder.Shading.UNLIT)
-            .vertexDomain(MaterialBuilder.VertexDomain.DEVICE)
-            // .depthWrite(false)
-            .variantFilter(
-                Material.UserVariantFilterBit.SKINNING
-                    .or(Material.UserVariantFilterBit.SHADOW_RECEIVER)
-                    .or(Material.UserVariantFilterBit.VSM)
-            )
             .culling(MaterialBuilder.CullingMode.NONE)
-            .materialVertex(
-                """
-                void materialVertex(inout MaterialVertexInputs material) {
-                   material.clipSpaceTransform = materialParams.vertexTransform;
-                   gl_PointSize = materialParams.size;
-                }"""
-            )
             .material(
                 """
                void material(inout MaterialInputs material) {
                    prepareMaterial(material);
-                   material.baseColor =  vec4(1.0,0.0,0.0,1.0);
+                   material.baseColor =  getColor();
                }
             """
             )
@@ -103,17 +88,33 @@ class ObjectScene(private val surfaceView:SurfaceView) :OrbScene{
         data class Vertex(
             val x: Float,
             val y: Float,
+            val z: Float,
+            val c: Int,
         )
 
         fun ByteBuffer.put(v: Vertex): ByteBuffer {
             putFloat(v.x)
             putFloat(v.y)
+            putFloat(v.z)
+            putInt(v.c)
             return this
         }
-        val vertexSize = 2 * Float.SIZE_BYTES
+        val size = 0.05f;
+        val vertexSize = 3 * Float.SIZE_BYTES + Int.SIZE_BYTES
+
+        val l:Float = -size     // length
+        val h:Float = size      // heigh
+        val red = 0xffff0000.toInt()
+        val green = 0xff00ff00.toInt()
+        val blue = 0xff0000ff.toInt()
 
         val verticies = arrayOf(
-            Vertex(0f, 0f),
+           Vertex(l,l,h,red),  Vertex( h,l,h,red), Vertex( l,h,h,red),Vertex( h,h,h,red),  // FRONT
+           Vertex(l,l,l,red),  Vertex( l,h,l,red), Vertex(h,l,l,red ),Vertex(h,h,l,red),  // BACK
+           Vertex(l,l,h,green),  Vertex( l,h,h,green), Vertex(l,l,l,green ),Vertex(l,h,l,green ), // LEFT
+           Vertex(h,l,l,green),  Vertex( h,h,l,green), Vertex(h,l,h,green ),Vertex(h,h,h,green ), // RIGHT
+           Vertex(l,h,h,blue),  Vertex( h,h,h,blue), Vertex(l,h,l,blue ),Vertex(h,h,l,blue ), // TOP
+           Vertex(l,l,h,blue),  Vertex( l,l,l,blue), Vertex(h,l,h,blue ),Vertex(h,l,l,blue ),  // BOTTOM
         )
 
         val vertexData = ByteBuffer.allocate(verticies.size * vertexSize)
@@ -126,12 +127,21 @@ class ObjectScene(private val surfaceView:SurfaceView) :OrbScene{
         vertexBuffer = VertexBuffer.Builder()
             .bufferCount(1)
             .vertexCount(verticies.size)
-            .attribute(VertexBuffer.VertexAttribute.POSITION,0,VertexBuffer.AttributeType.FLOAT2,0,vertexSize)
+            .attribute(VertexBuffer.VertexAttribute.POSITION,0,VertexBuffer.AttributeType.FLOAT3,0,vertexSize)
+            .attribute(VertexBuffer.VertexAttribute.COLOR,0,VertexBuffer.AttributeType.UBYTE4,3*Float.SIZE_BYTES,vertexSize)
+            .normalized(VertexBuffer.VertexAttribute.COLOR)
             .build(engine)
 
         vertexBuffer.setBufferAt(engine, 0, vertexData)
 
-        val indeces = (0..<verticies.size).map { it.toShort() }
+        val indeces = arrayOf<Short>(
+            0,1,2,3,
+            4,5,6,7,
+            8,9,10,11,
+            12,13,14,15,
+            16,17,18,19,
+            20,21,22,23
+        )
         val indexData = ByteBuffer.allocate(indeces.size * Short.SIZE_BYTES)
             .order(ByteOrder.nativeOrder())
             .also {

@@ -22,6 +22,7 @@ import com.google.android.filament.android.FilamentHelper
 import com.google.android.filament.android.UiHelper
 import com.google.android.filament.filamat.MaterialBuilder
 import com.mag.slam3dvideo.orb3.OrbSlamProcessor
+import com.mag.slam3dvideo.orb3.Plane
 import com.mag.slam3dvideo.orb3.TrackingState
 import com.mag.slam3dvideo.scenes.KeypointsScene
 import com.mag.slam3dvideo.scenes.ObjectScene
@@ -42,6 +43,8 @@ class MapViewActivity : AppCompatActivity() {
             MaterialBuilder.init()
         }
     }
+
+    private var plane: Plane? = null
 
     private lateinit var orbProcessor: OrbSlamProcessor
     private lateinit var frameBufferQueue: BufferQueue<Bitmap?>
@@ -207,6 +210,13 @@ class MapViewActivity : AppCompatActivity() {
         val tcw = orbProcessor.processFrame(bitmap)
         val state = orbProcessor.getTrackingState()
         if (state == TrackingState.OK) {
+            if(plane == null){
+                plane = orbProcessor.detectPlane()
+                if(plane != null){
+                    val glmat = plane!!.getGLTpw()
+                    val i = 22;
+                }
+            }
             val keys = orbProcessor.getCurrentFrameKeyPoints()
             keypointsScene.updateKeypoints(keys)
         }

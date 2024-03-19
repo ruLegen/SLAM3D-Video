@@ -68,7 +68,6 @@ class MapViewActivity : AppCompatActivity() {
     private lateinit var renderer: Renderer
 
     // A view defines a viewport, a scene and a camera for rendering
-    private lateinit var view: View
 
     // A swap chain is Filament's representation of a surface
     private var swapChain: SwapChain? = null
@@ -126,15 +125,15 @@ class MapViewActivity : AppCompatActivity() {
     private fun setupFilament() {
         engine = Engine.Builder().featureLevel(Engine.FeatureLevel.FEATURE_LEVEL_1).build()
         renderer = engine.createRenderer()
-        view = engine.createView()
 
     }
     private fun setupScenes() {
         videoScene = VideoScene(surfaceView)
         keypointsScene = KeypointsScene(surfaceView)
-        objectScene = ObjectScene(surfaceView)
-
+        objectScene = ObjectScene(surfaceView,)
         allScenes().forEach { it.init(engine) }
+
+        objectScene.setCameraCallibration(1920.0,1080.0,1364.21109,1350.67390,960.52704,523.65354)
 
         startAnimation()
     }
@@ -157,7 +156,7 @@ class MapViewActivity : AppCompatActivity() {
         animator.start()
     }
     private fun initVideoFrameGraber() {
-        frameBufferQueue = BufferQueue(5)
+        frameBufferQueue = BufferQueue(150)
         videoRetriever = VideoFrameRetriever(file);
         val orbAssets = AssetUtils.getOrbFileAssets(this)
         orbProcessor = OrbSlamProcessor(orbAssets.vocabFile, orbAssets.configFile)
@@ -181,6 +180,7 @@ class MapViewActivity : AppCompatActivity() {
         }
     }
 
+    var i = 0
     private fun processFrame(retryNum: Int) {
         if (retryNum > 2)
             return
@@ -206,23 +206,25 @@ class MapViewActivity : AppCompatActivity() {
         if (channels == -1)
             throw Exception("Unsupported bitmap mode ${bitmap.config}")
 
-        videoScene.processBitmap(bitmap)
-        val tcw = orbProcessor.processFrame(bitmap)
+       // videoScene.processBitmap(bitmap)
+       /* val tcw = orbProcessor.processFrame(bitmap)
+        objectScene.updateCameraMatrix(tcw)
         val state = orbProcessor.getTrackingState()
         if (state == TrackingState.OK) {
-            if(plane == null){
+            if(i == 15){
                 plane = orbProcessor.detectPlane()
-                if(plane != null){
-                    val glmat = plane!!.getGLTpw()
-                    val i = 22;
-                }
+                objectScene.setPlane(plane)
+                i++
+            }else{
+                i++
             }
             val keys = orbProcessor.getCurrentFrameKeyPoints()
             keypointsScene.updateKeypoints(keys)
         }
+
         keypointsScene.drawingRect = videoScene.drawingRect
         keypointsScene.setBitmapInfo(videoScene.bitmapStretch,videoScene.bitmapSize)
-
+*/
         bitmap.recycle()
         frameBufferQueue.releaseConsumedBuffer(decodedBitmap)
         frameProcessorTaskRunner?.executeAsync({
@@ -258,7 +260,6 @@ class MapViewActivity : AppCompatActivity() {
 
         // Cleanup all resources
         engine.destroyRenderer(renderer)
-        engine.destroyView(view)
         videoScene.destroy(engine)
 
         // Destroying the engine will free up any resource you may have forgotten
@@ -267,7 +268,7 @@ class MapViewActivity : AppCompatActivity() {
     }
 
     fun  allScenes():Array<OrbScene>{
-        return  arrayOf(videoScene,keypointsScene,objectScene)
+        return  arrayOf(videoScene,objectScene,keypointsScene)
     }
     inner class FrameCallback : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
@@ -280,8 +281,7 @@ class MapViewActivity : AppCompatActivity() {
                 // This means you are sending frames too quickly to the GPU
                 if (renderer.beginFrame(swapChain!!, frameTimeNanos)) {
                     allScenes().forEach {
-                        it.activate(view)
-                        renderer.render(view)
+                        it.render(renderer)
                     }
                     renderer.endFrame()
                 }
@@ -322,8 +322,9 @@ class MapViewActivity : AppCompatActivity() {
 //            val zoom = 1.5
 //            val aspect = width.toDouble() / height.toDouble()
 //            camera.setProjection(Camera.Projection.ORTHO,-aspect * zoom, aspect * zoom, -zoom, zoom, 0.0, 10.0)S
-            videoScene.onResize(width,height)
-            view.viewport = Viewport(0, 0, width, height)
+            allScenes().forEach {
+                it.onResize(width,height)
+            }
             FilamentHelper.synchronizePendingFrames(engine)
         }
     }

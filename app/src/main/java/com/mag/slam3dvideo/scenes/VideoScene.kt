@@ -15,12 +15,14 @@ import com.google.android.filament.IndexBuffer
 import com.google.android.filament.Material
 import com.google.android.filament.MaterialInstance
 import com.google.android.filament.RenderableManager
+import com.google.android.filament.Renderer
 import com.google.android.filament.Scene
 import com.google.android.filament.Skybox
 import com.google.android.filament.Texture
 import com.google.android.filament.TextureSampler
 import com.google.android.filament.VertexBuffer
 import com.google.android.filament.View
+import com.google.android.filament.Viewport
 import com.google.android.filament.filamat.MaterialBuilder
 import com.mag.slam3dvideo.utils.MathHelpers
 import com.mag.slam3dvideo.utils.TextureUtils
@@ -32,9 +34,10 @@ import java.nio.ByteOrder
 import java.util.concurrent.CountDownLatch
 
 class VideoScene(private val surfaceView: SurfaceView) : OrbScene {
+    private lateinit var view: View
     var drawingRect: RectF = RectF()
         private set
-    var bitmapStretch: BitmapStretch = BitmapStretch.AspectFit
+    var bitmapStretch: BitmapStretch = BitmapStretch.Fill
         private  set
     var bitmapSize:SizeF = SizeF(0f,0f)
         private set
@@ -57,6 +60,8 @@ class VideoScene(private val surfaceView: SurfaceView) : OrbScene {
 
     override fun init(e: Engine) {
         engine = e
+        view = engine.createView()
+
         scene = engine.createScene()
         camera = engine.createCamera(engine.entityManager.create())
 
@@ -81,13 +86,20 @@ class VideoScene(private val surfaceView: SurfaceView) : OrbScene {
             .build(engine, renderable)
         scene.addEntity(renderable)
         scene.skybox = Skybox.Builder().color(1.0f, 1f, 1f, 1.0f).build(engine)
-    }
-
-    override fun activate(view: View) {
         view.isPostProcessingEnabled = false
         view.camera = camera
         view.scene = scene
     }
+
+    override fun activate() {
+
+    }
+
+    override fun render(renderer: Renderer) {
+        renderer.render(view)
+
+    }
+
 
     private fun createTexture() {
         videoTexture = Texture.Builder()
@@ -215,7 +227,7 @@ class VideoScene(private val surfaceView: SurfaceView) : OrbScene {
     }
 
     override fun onResize(width: Int, height: Int) {
-
+        view.viewport = Viewport(0, 0, width, height)
         camera.setProjection(
             Camera.Projection.ORTHO,
             0.0,
@@ -296,7 +308,7 @@ class VideoScene(private val surfaceView: SurfaceView) : OrbScene {
             latch.countDown()
         }
         try {
-            latch.await()
+           // latch.await()
         } catch (ex: Exception) {
         }
     }

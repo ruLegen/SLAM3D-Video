@@ -13,9 +13,11 @@ import com.google.android.filament.IndexBuffer
 import com.google.android.filament.Material
 import com.google.android.filament.MaterialInstance
 import com.google.android.filament.RenderableManager
+import com.google.android.filament.Renderer
 import com.google.android.filament.Scene
 import com.google.android.filament.VertexBuffer
 import com.google.android.filament.View
+import com.google.android.filament.Viewport
 import com.google.android.filament.filamat.MaterialBuilder
 import com.mag.slam3dvideo.utils.bitmap.BitmapStretch
 import com.mag.slam3dvideo.utils.bitmap.BitmapUtils
@@ -25,6 +27,7 @@ import java.nio.ByteOrder
 import java.util.concurrent.CountDownLatch
 
 class KeypointsScene(private val surfaceView: SurfaceView) :OrbScene{
+    private lateinit var view: View
     var bitmapSize:SizeF = SizeF(1f,1f)
     var drawingRect:RectF = RectF()
 
@@ -42,6 +45,8 @@ class KeypointsScene(private val surfaceView: SurfaceView) :OrbScene{
 
     override fun init(e: Engine) {
         engine = e
+        view = engine.createView()
+
         scene = engine.createScene()
         camera = engine.createCamera(engine.entityManager.create())
 
@@ -57,7 +62,19 @@ class KeypointsScene(private val surfaceView: SurfaceView) :OrbScene{
             .build(engine, renderable)
         scene.addEntity(renderable)
         scene.skybox = null//Skybox.Builder().color(1.0f, 1f, 1f, 1.0f).build(engine)
+        view.isPostProcessingEnabled = false
+        view.camera = camera
+        view.scene = scene
     }
+
+    override fun activate() {
+
+    }
+
+    override fun render(renderer: Renderer) {
+        renderer.render(view)
+    }
+
     private fun loadMaterial() {
         generateMaterial().let {
             material = Material.Builder().payload(it, it.remaining()).build(engine)
@@ -174,13 +191,8 @@ class KeypointsScene(private val surfaceView: SurfaceView) :OrbScene{
         indexBuffer.setBuffer(engine, indexData)
     }
 
-    override fun activate(view: View) {
-        view.isPostProcessingEnabled = false
-        view.camera = camera
-        view.scene = scene
-    }
-
     override fun onResize(width: Int, height: Int) {
+        view.viewport=Viewport(0,0,width,height)
         camera.setProjection(
             Camera.Projection.ORTHO,
             0.0,
@@ -251,7 +263,7 @@ class KeypointsScene(private val surfaceView: SurfaceView) :OrbScene{
             scene.addEntity(renderable)
             latch.countDown()
         }
-        latch.await()
+       // latch.await()
         return
 
     }

@@ -12,7 +12,8 @@ fun Bitmap.getTransform(
     horizontal: BitmapAlignment = BitmapAlignment.Center,
     vertical: BitmapAlignment = BitmapAlignment.Center
 ): RectF {
-
+    if(stretch == BitmapStretch.Fill)
+        return dest
     val dstSize = SizeF(dest.width(), dest.height())
     val srcSize = SizeF(this.width.toFloat(), this.height.toFloat())
     val scale = computeScale(dstSize, srcSize, stretch)

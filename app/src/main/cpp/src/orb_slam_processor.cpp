@@ -14,6 +14,7 @@ OrbSlamProcessor::OrbSlamProcessor(const std::string &vocabFilePath,
                                    const std::string &configFilePath)
     : mOrbSlamSystem(vocabFilePath, configFilePath,
                      ORB_SLAM3::System::MONOCULAR, false) {}
+
 cv::Mat* OrbSlamProcessor::processFrame(BitmapGuard &bitmapGuard) {
   uint8_t *bitmapPtr = bitmapGuard.get();
   int32_t bitmapFormat = bitmapGuard.format();
@@ -36,7 +37,7 @@ cv::Mat* OrbSlamProcessor::processFrame(BitmapGuard &bitmapGuard) {
   Eigen::Matrix4f Tcw_Matrix = tcwSophus.matrix();
   cv::Mat* cvT = new cv::Mat(4,4,CV_32FC1);
   cv::eigen2cv(Tcw_Matrix, *cvT);
-  return cvT;
+   return cvT;
 }
 vector<ORB_SLAM3::MapPoint *> OrbSlamProcessor::getMapPoints() {
   return mOrbSlamSystem.GetTrackedMapPoints();

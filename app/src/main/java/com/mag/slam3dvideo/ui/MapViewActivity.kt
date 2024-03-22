@@ -1,26 +1,31 @@
 package com.mag.slam3dvideo.ui
 
 import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.graphics.Bitmap
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Choreographer
 import android.view.Surface
 import android.view.SurfaceView
 import android.view.WindowManager
 import android.view.animation.LinearInterpolator
+import android.widget.MediaController
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.android.filament.Engine
 import com.google.android.filament.Filament
 import com.google.android.filament.Renderer
 import com.google.android.filament.SwapChain
-import com.google.android.filament.View
-import com.google.android.filament.Viewport
 import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.FilamentHelper
 import com.google.android.filament.android.UiHelper
 import com.google.android.filament.filamat.MaterialBuilder
+import com.mag.slam3dvideo.R
+import com.mag.slam3dvideo.databinding.ActivityMapViewBinding
 import com.mag.slam3dvideo.orb3.OrbSlamProcessor
 import com.mag.slam3dvideo.orb3.Plane
 import com.mag.slam3dvideo.orb3.TrackingState
@@ -28,14 +33,28 @@ import com.mag.slam3dvideo.scenes.KeypointsScene
 import com.mag.slam3dvideo.scenes.ObjectScene
 import com.mag.slam3dvideo.scenes.OrbScene
 import com.mag.slam3dvideo.scenes.VideoScene
+import com.mag.slam3dvideo.ui.components.SurfaceMediaPlayerControl
 import com.mag.slam3dvideo.utils.AssetUtils
 import com.mag.slam3dvideo.utils.BufferQueue
+import com.mag.slam3dvideo.utils.OrbFrameInfoHolder
 import com.mag.slam3dvideo.utils.TaskRunner
 import com.mag.slam3dvideo.utils.video.VideoFrameRetriever
 import org.opencv.android.OpenCVLoader
+import java.io.Closeable
 
 
 class MapViewActivity : AppCompatActivity() {
+    data class BitmapItem(var frameNumber: Int, var bitmap: Bitmap?) :Closeable{
+        override fun close() {
+            try {
+                bitmap?.recycle()
+            }finally {
+                bitmap = null
+            }
+        }
+
+    }
+
     companion object {
         init {
             Filament.init()
@@ -44,33 +63,28 @@ class MapViewActivity : AppCompatActivity() {
         }
     }
 
+
+    private lateinit var binding: ActivityMapViewBinding
+    private lateinit var infoText: TextView
     private var plane: Plane? = null
 
     private lateinit var orbProcessor: OrbSlamProcessor
-    private lateinit var frameBufferQueue: BufferQueue<Bitmap?>
+    private lateinit var frameBufferQueue: BufferQueue<BitmapItem>
     private var imageDecoderTaskRunner: TaskRunner? = null
     private var frameProcessorTaskRunner: TaskRunner? = null
+    private var imagePreviewTaskRunner: TaskRunner? = null
 
     //    var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20230318_132255477.mp4"
     var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240223_143249538.mp4"
 
-    private lateinit var surfaceView: SurfaceView
-
-    // UiHelper is provided by Filament to manage SurfaceView and SurfaceTexture
+    private lateinit var surfaceView: SurfaceMediaPlayerControl
     private lateinit var uiHelper: UiHelper
-
-    // DisplayHelper is provided by Filament to manage the display
     private lateinit var displayHelper: DisplayHelper
-
-    // Choreographer is used to schedule new frames
     private lateinit var choreographer: Choreographer
     private lateinit var engine: Engine
     private lateinit var renderer: Renderer
-
-    // A view defines a viewport, a scene and a camera for rendering
-
-    // A swap chain is Filament's representation of a surface
     private var swapChain: SwapChain? = null
+    private val handler = Handler(Looper.getMainLooper())
 
     // Performs the rendering and schedules new frames
     private val frameScheduler = FrameCallback()
@@ -79,11 +93,17 @@ class MapViewActivity : AppCompatActivity() {
     private lateinit var videoScene: VideoScene;
     private lateinit var keypointsScene: KeypointsScene
     private lateinit var objectScene: ObjectScene
+    private lateinit var orbFrameInfoHolder: OrbFrameInfoHolder
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        surfaceView = SurfaceView(this)
-        setContentView(surfaceView)
+        setContentView(R.layout.activity_map_view)
+        binding = ActivityMapViewBinding.inflate(layoutInflater)
+        setContentView(binding.root)
+        surfaceView = binding.surfaceView
+        surfaceView.setMediaController(MediaController(this))
+
+        infoText = binding.infoText
         choreographer = Choreographer.getInstance()
         displayHelper = DisplayHelper(this)
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
@@ -105,6 +125,7 @@ class MapViewActivity : AppCompatActivity() {
         if (AssetUtils.hasAllMediaPermissions(this)) {
             initVideoFrameGraber()
         } else {
+            setInfoText("Cannot start app, no media permissions granted")
             Toast.makeText(
                 this,
                 "Cannot start app, no media permissions granted",
@@ -113,6 +134,11 @@ class MapViewActivity : AppCompatActivity() {
         }
     }
 
+    private fun setInfoText(s: String) {
+        handler.post{
+           infoText.text = s
+        }
+    }
 
     private fun setupSurfaceView() {
         uiHelper = UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK)
@@ -127,13 +153,21 @@ class MapViewActivity : AppCompatActivity() {
         renderer = engine.createRenderer()
 
     }
+
     private fun setupScenes() {
         videoScene = VideoScene(surfaceView)
         keypointsScene = KeypointsScene(surfaceView)
-        objectScene = ObjectScene(surfaceView,)
+        objectScene = ObjectScene(surfaceView)
         allScenes().forEach { it.init(engine) }
 
-        objectScene.setCameraCallibration(1920.0,1080.0,1364.21109,1350.67390,960.52704,523.65354)
+        objectScene.setCameraCallibration(
+            1920.0,
+            1080.0,
+            1364.21109,
+            1350.67390,
+            960.52704,
+            523.65354
+        )
 
         startAnimation()
     }
@@ -155,12 +189,17 @@ class MapViewActivity : AppCompatActivity() {
         })
         animator.start()
     }
+
     private fun initVideoFrameGraber() {
-        frameBufferQueue = BufferQueue(150)
+        frameBufferQueue = BufferQueue(15)
         videoRetriever = VideoFrameRetriever(file);
+
+        setInfoText("Initializing OrbSlamProcessor")
         val orbAssets = AssetUtils.getOrbFileAssets(this)
         orbProcessor = OrbSlamProcessor(orbAssets.vocabFile, orbAssets.configFile)
         videoRetriever!!.initialize()
+        orbFrameInfoHolder = OrbFrameInfoHolder(videoRetriever!!.frameCount.toInt())
+        imagePreviewTaskRunner = TaskRunner()
         imageDecoderTaskRunner = TaskRunner().apply {
             executeAsync({ decodeFrame(0) })
         }
@@ -172,21 +211,23 @@ class MapViewActivity : AppCompatActivity() {
     private fun decodeFrame(frame: Int) {
         val b = frameBufferQueue.getBufferToProduce()!!
         val decodedBitmap = videoRetriever?.getFrame(frame)
-        b.value = decodedBitmap
+        b.value = BitmapItem(frame, decodedBitmap)
+
         frameBufferQueue.releaseProducedBuffer(b);
-        Log.d("DECODER", "Decoded ${frame}/${videoRetriever?.frameCount}")
+//        Log.d("DECODER", "Decoded ${frame}/${videoRetriever?.frameCount}")
         if (decodedBitmap != null) {
             imageDecoderTaskRunner?.executeAsync({ decodeFrame(frame + 1) })
         }
     }
 
     var i = 0
+    @SuppressLint("SetTextI18n")
     private fun processFrame(retryNum: Int) {
         if (retryNum > 2)
             return
 
         val decodedBitmap = frameBufferQueue.getBufferToConsume()
-        val isValid = decodedBitmap!!.value != null
+        val isValid = decodedBitmap!!.value?.bitmap != null
         if (!isValid) {
             frameBufferQueue.releaseConsumedBuffer(decodedBitmap)
             frameProcessorTaskRunner?.executeAsync({
@@ -195,7 +236,10 @@ class MapViewActivity : AppCompatActivity() {
             return
         }
 
-        val bitmap = decodedBitmap.value!!
+        val bitmapItem = decodedBitmap.value!!
+        val bitmap = bitmapItem.bitmap!!
+        val frameNumber = bitmapItem.frameNumber
+
         val channels = when (bitmap.config) {
             Bitmap.Config.ARGB_8888 -> 4
             Bitmap.Config.ALPHA_8 -> 1
@@ -205,36 +249,53 @@ class MapViewActivity : AppCompatActivity() {
         }
         if (channels == -1)
             throw Exception("Unsupported bitmap mode ${bitmap.config}")
-
-       // videoScene.processBitmap(bitmap)
-       /* val tcw = orbProcessor.processFrame(bitmap)
-        objectScene.updateCameraMatrix(tcw)
+        //videoScene.processBitmap(bitmap)
+        val tcw = orbProcessor.processFrame(bitmap)
+        orbFrameInfoHolder.setCameraPosAtFrame(frameNumber, tcw)
         val state = orbProcessor.getTrackingState()
         if (state == TrackingState.OK) {
-            if(i == 15){
+            if (i == 15) {
                 plane = orbProcessor.detectPlane()
                 objectScene.setPlane(plane)
                 i++
-            }else{
+            } else {
                 i++
             }
             val keys = orbProcessor.getCurrentFrameKeyPoints()
-            keypointsScene.updateKeypoints(keys)
+            orbFrameInfoHolder.setKeypointsAtFrame(frameNumber, keys)
+            if (i == 1) {
+                imagePreviewTaskRunner?.executeAsync({ previewImage(0) })
+            }
         }
-
         keypointsScene.drawingRect = videoScene.drawingRect
-        keypointsScene.setBitmapInfo(videoScene.bitmapStretch,videoScene.bitmapSize)
-*/
-        bitmap.recycle()
+        keypointsScene.setBitmapInfo(videoScene.bitmapStretch, videoScene.bitmapSize)
+
+        Log.d("DECODER", "Decoded ${frameNumber}/${videoRetriever?.frameCount}")
+        setInfoText("Decoded $frameNumber/${videoRetriever?.frameCount} | State = $state")
         frameBufferQueue.releaseConsumedBuffer(decodedBitmap)
         frameProcessorTaskRunner?.executeAsync({
             processFrame(0)
         })
     }
 
+    private fun previewImage(frameNumber: Int) {
+        if (frameNumber.toLong() == (videoRetriever?.frameCount ?: frameNumber))
+            return
+        val cameraPos = orbFrameInfoHolder.getCameraPosAtFrame(frameNumber)
+        val points = orbFrameInfoHolder.getKeypointsAtFrame(frameNumber)
+        val bitmap = videoRetriever?.getFrame(frameNumber)
+        if(bitmap == null){
+            imagePreviewTaskRunner?.executeAsync({ previewImage(frameNumber + 1) })
+            return
+        }
+        videoScene.processBitmap(bitmap)
+        objectScene.updateCameraMatrix(cameraPos)
+        keypointsScene.updateKeypoints(points)
+        bitmap.recycle()
+        imagePreviewTaskRunner?.executeAsync({ previewImage(frameNumber + 1) })
+    }
 
-    // Not required when SKIP_BITMAP_COPY is true
-
+// Not required when SKIP_BITMAP_COPY is true
 
     override fun onResume() {
         super.onResume()
@@ -267,9 +328,10 @@ class MapViewActivity : AppCompatActivity() {
         engine.destroy()
     }
 
-    fun  allScenes():Array<OrbScene>{
-        return  arrayOf(videoScene,objectScene,keypointsScene)
+    fun allScenes(): Array<OrbScene> {
+        return arrayOf(videoScene, objectScene, keypointsScene)
     }
+
     inner class FrameCallback : Choreographer.FrameCallback {
         override fun doFrame(frameTimeNanos: Long) {
             // Schedule the next frame
@@ -323,7 +385,7 @@ class MapViewActivity : AppCompatActivity() {
 //            val aspect = width.toDouble() / height.toDouble()
 //            camera.setProjection(Camera.Projection.ORTHO,-aspect * zoom, aspect * zoom, -zoom, zoom, 0.0, 10.0)S
             allScenes().forEach {
-                it.onResize(width,height)
+                it.onResize(width, height)
             }
             FilamentHelper.synchronizePendingFrames(engine)
         }

@@ -1,5 +1,6 @@
 package com.mag.slam3dvideo.utils
 
+import java.io.Closeable
 import java.util.UUID
 
 enum class QueueState {
@@ -9,13 +10,14 @@ enum class QueueState {
     Producing,
 }
 
-class BufferQueueItem<T>(item: T?, guid: UUID = UUID.randomUUID()) {
+class BufferQueueItem<T>(item: T?, guid: UUID = UUID.randomUUID())
+        where T : Closeable{
     var value: T? = item
     var id = guid
         private set
 }
 
-class BufferQueue<T>(size: Int) {
+class BufferQueue<T>(size: Int) where T : Closeable {
     var capacity: Int = size
 
     private var trackedItems: MutableMap<UUID, BufferQueueItem<T>> = mutableMapOf()
@@ -77,6 +79,8 @@ class BufferQueue<T>(size: Int) {
             val state = queueStates[item.id]!!
             assert(state == QueueState.Consuming) { "Cannot release consumed buffer, because state is ${state}" }
             queueStates[item.id] = QueueState.Consumed
+            item.value?.close()
+            item.value = null
             synchronized(producerLock) {
                 producerLock.notifyAll()
             }

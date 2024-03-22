@@ -8,11 +8,20 @@ import org.opencv.core.at
  * Except it doesn't own the native ptr
  * Use with caution, underlying object may be destructed
  */
-class MatShared(ptr:Long,val isOwnPtr:Boolean = false) : Mat(ptr)
+class MatShared(var ptr:Long,val isOwnPtr:Boolean = false) : Mat(ptr),AutoCloseable
 {
     override fun finalize() {
-        if(isOwnPtr)
+        if(isOwnPtr && ptr != 0L){
+            ptr = 0;
             super.finalize()
+        }
+    }
+
+    override fun close() {
+        if(isOwnPtr && ptr != 0L){
+            ptr = 0
+            super.finalize()
+        }
     }
 
 }

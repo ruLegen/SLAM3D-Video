@@ -212,7 +212,9 @@ class KeypointsScene(private val surfaceView: SurfaceView) :OrbScene{
         bitmapStretch = stretchType
     }
 
-    fun updateKeypoints(k: List<KeyPoint>) {
+    fun updateKeypoints(k: List<KeyPoint>?) {
+        if(k == null)
+            return
         var keys = k
         if(keys.isEmpty())
         {

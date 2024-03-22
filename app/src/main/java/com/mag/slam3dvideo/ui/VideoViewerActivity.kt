@@ -133,7 +133,6 @@ class VideoViewerActivity : AppCompatActivity() {
         timeline.progress = vm?.progress ?: 0f
         val mc = android.widget.MediaController(this@VideoViewerActivity)
         player.setMediaController(mc)
-        mc.setAnchorView(player)
         player.setOnPreparedListener {
             it.setOnSeekCompleteListener {
                 timeline.progress = it.currentPosition / it.duration.toFloat()

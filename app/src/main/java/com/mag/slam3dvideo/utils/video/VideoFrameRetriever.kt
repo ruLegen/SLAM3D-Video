@@ -3,6 +3,7 @@ package com.mag.slam3dvideo.utils.video
 import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.media.MediaMetadataRetriever.BitmapParams
+import android.media.MediaMetadataRetriever.OPTION_CLOSEST
 import java.io.FileInputStream
 
 class VideoFrameRetriever(videoPath: String) {
@@ -18,7 +19,6 @@ class VideoFrameRetriever(videoPath: String) {
     private val mediaMetadataRetriever = MediaMetadataRetriever()
     private var filePath: String = videoPath
     private var bitmapDecodeParams : BitmapParams
-
     init {
         bitmapDecodeParams = BitmapParams().apply {
             preferredConfig = Bitmap.Config.ARGB_8888

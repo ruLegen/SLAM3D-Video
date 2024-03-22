@@ -64,6 +64,7 @@ class MapViewActivity : AppCompatActivity() {
     }
 
 
+    private lateinit var previewVideoRetriever: VideoFrameRetriever
     private lateinit var binding: ActivityMapViewBinding
     private lateinit var infoText: TextView
     private var plane: Plane? = null
@@ -193,11 +194,13 @@ class MapViewActivity : AppCompatActivity() {
     private fun initVideoFrameGraber() {
         frameBufferQueue = BufferQueue(15)
         videoRetriever = VideoFrameRetriever(file);
+        previewVideoRetriever = VideoFrameRetriever(file);
 
         setInfoText("Initializing OrbSlamProcessor")
         val orbAssets = AssetUtils.getOrbFileAssets(this)
         orbProcessor = OrbSlamProcessor(orbAssets.vocabFile, orbAssets.configFile)
         videoRetriever!!.initialize()
+        previewVideoRetriever.initialize()
         orbFrameInfoHolder = OrbFrameInfoHolder(videoRetriever!!.frameCount.toInt())
         imagePreviewTaskRunner = TaskRunner()
         imageDecoderTaskRunner = TaskRunner().apply {
@@ -215,7 +218,7 @@ class MapViewActivity : AppCompatActivity() {
 
         frameBufferQueue.releaseProducedBuffer(b);
 //        Log.d("DECODER", "Decoded ${frame}/${videoRetriever?.frameCount}")
-        if (decodedBitmap != null) {
+        if (frame < (videoRetriever?.frameCount ?: 0)) {
             imageDecoderTaskRunner?.executeAsync({ decodeFrame(frame + 1) })
         }
     }
@@ -283,7 +286,7 @@ class MapViewActivity : AppCompatActivity() {
             return
         val cameraPos = orbFrameInfoHolder.getCameraPosAtFrame(frameNumber)
         val points = orbFrameInfoHolder.getKeypointsAtFrame(frameNumber)
-        val bitmap = videoRetriever?.getFrame(frameNumber)
+        val bitmap = previewVideoRetriever.getFrame(frameNumber)
         if(bitmap == null){
             imagePreviewTaskRunner?.executeAsync({ previewImage(frameNumber + 1) })
             return

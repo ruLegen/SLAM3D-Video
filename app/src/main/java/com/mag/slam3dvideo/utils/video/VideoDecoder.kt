@@ -9,7 +9,7 @@ import android.view.SurfaceView
 import java.io.File
 import java.nio.ByteBuffer
 
-class VideoDecoder(sourceFile: File, surface: Surface) {
+class VideoDecoder(sourceFile: File, surface: Surface?) {
     private var trackIndex: Int
     private val TIMEOUT_USEC = 10000L
     private var extractor: MediaExtractor

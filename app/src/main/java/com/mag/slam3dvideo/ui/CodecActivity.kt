@@ -198,9 +198,9 @@ class CodecActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener,
         // the "play" button until this callback fires.
         Log.d(TAG, "surfaceCreated")
         mSurfaceHolderReady = true
-        Thread({
-            videoDecoder = VideoDecoder(File(file), mSurfaceView!!)
-        }).apply {
+        Thread{
+            videoDecoder = VideoDecoder(File(file), mSurfaceView?.holder?.surface)
+        }.apply {
             start()
         }
         updateControls()

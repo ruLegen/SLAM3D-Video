@@ -34,8 +34,8 @@ class VideoDecoder(
     private val VERBOSE = false
     private var mVideoHeight: Int
     private var mVideoWidth: Int
-    private var frameCallback: WeakReference<MoviePlayer.FrameCallback> =
-        WeakReference(frameCallback)
+    private var frameCallback: MoviePlayer.FrameCallback? =frameCallback
+
     private var decodeFrameQueue: BlockingQueue<Long> = LinkedBlockingQueue(999)
 
     init {
@@ -141,6 +141,7 @@ class VideoDecoder(
 
     private fun run(extractor: MediaExtractor, trackIndex: Int, decoder: MediaCodec) {
         var mIsStopRequested = false
+
         var inputChunk = 0
         var firstInputTimeNsec: Long = -1
         var outputDone = false
@@ -246,20 +247,20 @@ class VideoDecoder(
                     // appears on-screen, but we can manage the pace at which we release
                     // the buffers.
                     if (doRender) {
-                        frameCallback.get()?.preRender(bufferInfo.presentationTimeUs)
+                        frameCallback?.preRender(bufferInfo.presentationTimeUs)
                     }
                     //  val image = decoder.getOutputImage(decoderStatus)
                     //   image?.close()
                     decoder.releaseOutputBuffer(decoderStatus, doRender)
                     if (doRender) {
-                        frameCallback.get()?.postRender()
+                        frameCallback?.postRender()
                     }
                     if (doLoop) {
                         Log.d(TAG, "Reached EOS, looping")
                         extractor.seekTo(0, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
                         inputDone = false
                         decoder.flush() // reset decoder state
-                        frameCallback.get()?.loopReset()
+                        frameCallback?.loopReset()
                     }
                 }
             }
@@ -384,20 +385,20 @@ class VideoDecoder(
                         // appears on-screen, but we can manage the pace at which we release
                         // the buffers.
                         if (doRender) {
-                            frameCallback.get()?.preRender(bufferInfo.presentationTimeUs)
+                            frameCallback?.preRender(bufferInfo.presentationTimeUs)
                         }
                         //  val image = decoder.getOutputImage(decoderStatus)
                         //   image?.close()
                         decoder.releaseOutputBuffer(decoderStatus, doRender)
                         if (doRender) {
-                            frameCallback.get()?.postRender()
+                            frameCallback?.postRender()
                         }
                         if (doLoop) {
                             Log.d(TAG, "Reached EOS, looping")
                             extractor.seekTo(0, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
                             inputDone = false
                             decoder.flush() // reset decoder state
-                            frameCallback.get()?.loopReset()
+                            frameCallback?.loopReset()
                         }
                     }
                 }

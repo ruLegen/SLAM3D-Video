@@ -41,6 +41,7 @@ import com.mag.slam3dvideo.utils.BufferQueue
 import com.mag.slam3dvideo.utils.MoviePlayer
 import com.mag.slam3dvideo.utils.OrbFrameInfoHolder
 import com.mag.slam3dvideo.utils.TaskRunner
+import com.mag.slam3dvideo.utils.video.SpeedControlCallback
 import com.mag.slam3dvideo.utils.video.VideoDecoder
 import com.mag.slam3dvideo.utils.video.VideoFrameRetriever
 import org.opencv.android.OpenCVLoader
@@ -48,7 +49,7 @@ import java.io.Closeable
 import java.io.File
 
 
-class MapViewActivity : AppCompatActivity(), MoviePlayer.FrameCallback{
+class MapViewActivity : AppCompatActivity(){
     data class BitmapItem(var frameNumber: Int, var bitmap: Bitmap?) :Closeable{
         override fun close() {
             try {
@@ -205,7 +206,10 @@ class MapViewActivity : AppCompatActivity(), MoviePlayer.FrameCallback{
         videoRetriever!!.initialize()
 
         setupScenes()
-        videoDecoder = VideoDecoder(File(file),videoScene.surface,this)
+
+        val speedControllCallback = SpeedControlCallback()
+        speedControllCallback.setFixedPlaybackRate(videoRetriever!!.capturedFps.toInt())
+        videoDecoder = VideoDecoder(File(file),videoScene.surface,speedControllCallback)
         orbFrameInfoHolder = OrbFrameInfoHolder(videoRetriever!!.frameCount.toInt())
         imagePreviewTaskRunner = TaskRunner()
         imageDecoderTaskRunner = TaskRunner().apply {
@@ -400,16 +404,5 @@ class MapViewActivity : AppCompatActivity(), MoviePlayer.FrameCallback{
             FilamentHelper.synchronizePendingFrames(engine)
         }
     }
-
-    override fun preRender(presentationTimeUsec: Long) {
-    }
-
-    override fun postRender() {
-//        videoScene.pushExternalImageToFilament()
-    }
-
-    override fun loopReset() {
-    }
-
 
 }

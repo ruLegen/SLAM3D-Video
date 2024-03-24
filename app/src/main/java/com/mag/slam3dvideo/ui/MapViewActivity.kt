@@ -8,10 +8,8 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
-import android.util.SizeF
 import android.view.Choreographer
 import android.view.Surface
-import android.view.SurfaceView
 import android.view.WindowManager
 import android.view.animation.LinearInterpolator
 import android.widget.MediaController
@@ -35,20 +33,37 @@ import com.mag.slam3dvideo.scenes.KeypointsScene
 import com.mag.slam3dvideo.scenes.ObjectScene
 import com.mag.slam3dvideo.scenes.OrbScene
 import com.mag.slam3dvideo.scenes.VideoScene
+import com.mag.slam3dvideo.ui.components.MediaPlayerControlCallback
 import com.mag.slam3dvideo.ui.components.SurfaceMediaPlayerControl
 import com.mag.slam3dvideo.utils.AssetUtils
 import com.mag.slam3dvideo.utils.BufferQueue
-import com.mag.slam3dvideo.utils.MoviePlayer
 import com.mag.slam3dvideo.utils.OrbFrameInfoHolder
 import com.mag.slam3dvideo.utils.TaskRunner
 import com.mag.slam3dvideo.utils.video.SpeedControlCallback
 import com.mag.slam3dvideo.utils.video.VideoDecoder
 import com.mag.slam3dvideo.utils.video.VideoFrameRetriever
+import com.mag.slam3dvideo.utils.video.VideoPlaybackCallback
 import org.opencv.android.OpenCVLoader
 import java.io.Closeable
 import java.io.File
 
+class SurfaceControlCallback(val videoDecoder: VideoDecoder,val decoderSpeedControlCallback: SpeedControlCallback) :MediaPlayerControlCallback{
+    override fun onStart(sender: MediaController.MediaPlayerControl) {
+        decoderSpeedControlCallback.resume()
+    }
 
+    override fun onPause(sender: MediaController.MediaPlayerControl) {
+        decoderSpeedControlCallback.pause()
+    }
+
+    override fun onSeek(sender: MediaController.MediaPlayerControl, pos: Int) {
+        val isBackwards = pos < 0
+        if(isBackwards)
+            videoDecoder.seekTo(0)
+        else
+            videoDecoder.seekTo(time)
+    }
+}
 class MapViewActivity : AppCompatActivity(){
     data class BitmapItem(var frameNumber: Int, var bitmap: Bitmap?) :Closeable{
         override fun close() {
@@ -70,6 +85,7 @@ class MapViewActivity : AppCompatActivity(){
     }
 
 
+    private lateinit var decoderSpeedControlCallback: SpeedControlCallback
     private lateinit var videoDecoder: VideoDecoder
     private lateinit var binding: ActivityMapViewBinding
     private lateinit var infoText: TextView
@@ -109,7 +125,6 @@ class MapViewActivity : AppCompatActivity(){
         setContentView(binding.root)
         surfaceView = binding.surfaceView
         surfaceView.setMediaController(MediaController(this))
-
         infoText = binding.infoText
         choreographer = Choreographer.getInstance()
         displayHelper = DisplayHelper(this)
@@ -121,6 +136,7 @@ class MapViewActivity : AppCompatActivity(){
             initVideoFrameGraber()
         }
     }
+
 
     override fun onRequestPermissionsResult(
         requestCode: Int,
@@ -207,9 +223,20 @@ class MapViewActivity : AppCompatActivity(){
 
         setupScenes()
 
-        val speedControllCallback = SpeedControlCallback()
-        speedControllCallback.setFixedPlaybackRate(videoRetriever!!.capturedFps.toInt())
-        videoDecoder = VideoDecoder(File(file),videoScene.surface,speedControllCallback)
+        decoderSpeedControlCallback = SpeedControlCallback(object :VideoPlaybackCallback{
+            override fun preRender(progress: Float) {
+                val frame = (progress * (videoRetriever?.frameCount ?:0)).toInt()
+                previewImage(frame)
+            }
+
+            override fun postRender() {
+            }
+        })
+        videoDecoder = VideoDecoder(File(file),videoScene.surface,decoderSpeedControlCallback)
+        decoderSpeedControlCallback.setFixedPlaybackRate(15)
+        decoderSpeedControlCallback.mTotalDuraionUsec = videoDecoder.mVideoDuration.toFloat()
+        surfaceView.mediaControlCallback = SurfaceControlCallback(videoDecoder,decoderSpeedControlCallback)
+
         orbFrameInfoHolder = OrbFrameInfoHolder(videoRetriever!!.frameCount.toInt())
         imagePreviewTaskRunner = TaskRunner()
         imageDecoderTaskRunner = TaskRunner().apply {
@@ -218,6 +245,7 @@ class MapViewActivity : AppCompatActivity(){
         frameProcessorTaskRunner = TaskRunner().apply {
             executeAsync({ processFrame(0) })
         }
+        videoDecoder.start()
     }
 
     private fun decodeFrame(frame: Int) {
@@ -276,11 +304,7 @@ class MapViewActivity : AppCompatActivity(){
             val keys = orbProcessor.getCurrentFrameKeyPoints()
             orbFrameInfoHolder.setKeypointsAtFrame(frameNumber, keys)
         }
-        i++
-            if (i == 1) {
-                videoDecoder.start()
-                imagePreviewTaskRunner?.executeAsync({ previewImage(0) })
-            }
+
         keypointsScene.drawingRect = videoScene.drawingRect
         keypointsScene.setBitmapInfo(videoScene.bitmapStretch, videoScene.bitmapSize)
 
@@ -298,14 +322,11 @@ class MapViewActivity : AppCompatActivity(){
         val cameraPos = orbFrameInfoHolder.getCameraPosAtFrame(frameNumber)
         val points = orbFrameInfoHolder.getKeypointsAtFrame(frameNumber)
         val size = videoRetriever!!.frameSize
-        val frameDurationMs = videoRetriever!!.durationMs.toFloat()/videoRetriever!!.frameCount
-        val frameTimeMs = frameNumber * frameDurationMs
-        videoDecoder.decodeAtTime((frameTimeMs*1000L).toLong())
         videoScene.processBitmap(RectF(0f,0f,size.width,size.height))
         objectScene.updateCameraMatrix(cameraPos)
         keypointsScene.updateKeypoints(points)
 //        Thread.sleep(100)
-        imagePreviewTaskRunner?.executeAsync({ previewImage(frameNumber + 1) })
+//        imagePreviewTaskRunner?.executeAsync({ previewImage(frameNumber + 1) })
     }
 
 // Not required when SKIP_BITMAP_COPY is true

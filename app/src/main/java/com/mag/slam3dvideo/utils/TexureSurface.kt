@@ -44,7 +44,7 @@ class TextureSurface(val width: Int, val height: Int, val handler: Handler,val o
 
     val matrix = FloatArray(16)
     override fun onFrameAvailable(surfaceTexture: SurfaceTexture?) {
-        Log.d("awd", "FrameAvailable")
+//        Log.d("awd", "FrameAvailable")
         handler.post{
             mDisplaySurface.makeCurrent()
             mTextureSurface.updateTexImage()

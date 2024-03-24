@@ -21,7 +21,8 @@ class VideoDecoder(
     surface: Surface?,
     frameCallback: MoviePlayer.FrameCallback? = null
 ) {
-    private var mFrameTimeUs: Float
+    var mFrameTimeUs: Float
+        private set
     var mVideoDuration: Long
         private set
     private var isStarted: Boolean = false
@@ -288,7 +289,6 @@ class VideoDecoder(
 
             var shouldSeekMore = true
             while (shouldSeekMore) {
-
                 // Feed more data to the decoder.
                 if (!inputDone) {
                     val inputBufIndex = decoder.dequeueInputBuffer(TIMEOUT_USEC.toLong())
@@ -474,5 +474,9 @@ class VideoDecoder(
             }
         }
         return -1
+    }
+
+    fun seekTo(timeUsec: Long) {
+
     }
 }

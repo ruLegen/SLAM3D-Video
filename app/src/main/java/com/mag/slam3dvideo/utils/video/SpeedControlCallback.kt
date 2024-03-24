@@ -3,12 +3,20 @@ package com.mag.slam3dvideo.utils.video
 import android.util.Log
 import com.mag.slam3dvideo.utils.MoviePlayer
 
+interface VideoPlaybackCallback {
+    fun preRender(progress: Float)
+    fun postRender()
+}
 
-class SpeedControlCallback : MoviePlayer.FrameCallback {
+class SpeedControlCallback(val callback: VideoPlaybackCallback?) : MoviePlayer.FrameCallback {
+    var mTotalDuraionUsec: Float = -1f
+
     private var mPrevPresentUsec: Long = 0
     private var mPrevMonoUsec: Long = 0
     private var mFixedFrameDurationUsec: Long = 0
     private var mLoopReset = false
+    private var mIsPausedSignaled: Boolean = false
+    private var pauseResumeLock = Object()
 
     /**
      * Sets a fixed playback rate.  If set, this will ignore the presentation time stamp
@@ -20,6 +28,7 @@ class SpeedControlCallback : MoviePlayer.FrameCallback {
 
     // runs on decode thread
     override fun preRender(presentationTimeUsec: Long) {
+        callback?.preRender(presentationTimeUsec / mTotalDuraionUsec)
         // For the first frame, we grab the presentation time from the video
         // and the current monotonic clock time.  For subsequent frames, we
         // sleep for a bit to try to ensure that we're rendering frames at the
@@ -106,9 +115,28 @@ class SpeedControlCallback : MoviePlayer.FrameCallback {
     }
 
     // runs on decode thread
-    override fun postRender() {}
+    override fun postRender() {
+        callback?.postRender()
+        synchronized(pauseResumeLock) {
+            if (mIsPausedSignaled) {
+                pauseResumeLock.wait()
+                mIsPausedSignaled = false
+            }
+        }
+    }
+
     override fun loopReset() {
         mLoopReset = true
+    }
+
+    fun resume() {
+        synchronized(pauseResumeLock){
+            pauseResumeLock.notifyAll()
+        }
+    }
+
+    fun pause() {
+        mIsPausedSignaled = true
     }
 
     companion object {

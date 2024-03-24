@@ -1,22 +1,33 @@
 package com.mag.slam3dvideo.ui.components
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.util.AttributeSet
 import android.view.MotionEvent
 import android.view.SurfaceView
 import android.view.View
 import android.widget.MediaController
+import android.widget.MediaController.MediaPlayerControl
 
-class SurfaceMediaPlayerControl(context: Context?, attrs: AttributeSet?) : SurfaceView(context,attrs),MediaController.MediaPlayerControl {
+interface MediaPlayerControlCallback{
+    fun onStart(sender:MediaPlayerControl)
+    fun onPause(sender: MediaPlayerControl)
+    fun onSeek(sender:MediaPlayerControl, pos:Int)
+}
+class SurfaceMediaPlayerControl(context: Context?, attrs: AttributeSet?) : SurfaceView(context,attrs),
+    MediaPlayerControl {
     private var mMediaController: MediaController? = null
+    var mediaControlCallback: MediaPlayerControlCallback? = null
     var mIsPlaying:Boolean = false
         private set
     override fun start() {
         mIsPlaying =true
+        mediaControlCallback?.onStart(this)
     }
 
     override fun pause() {
         mIsPlaying=false
+        mediaControlCallback?.onPause(this)
     }
 
     override fun getDuration(): Int {
@@ -28,6 +39,7 @@ class SurfaceMediaPlayerControl(context: Context?, attrs: AttributeSet?) : Surfa
     }
 
     override fun seekTo(pos: Int) {
+        mediaControlCallback?.onSeek(this,pos)
     }
 
     override fun isPlaying(): Boolean {
@@ -43,11 +55,11 @@ class SurfaceMediaPlayerControl(context: Context?, attrs: AttributeSet?) : Surfa
     }
 
     override fun canSeekBackward(): Boolean {
-        return  false
+        return  true
     }
 
     override fun canSeekForward(): Boolean {
-        return  false
+        return  true
     }
 
     override fun getAudioSessionId(): Int {
@@ -58,13 +70,14 @@ class SurfaceMediaPlayerControl(context: Context?, attrs: AttributeSet?) : Surfa
         mMediaController = controller
         attachMediaController()
     }
+    @SuppressLint("ClickableViewAccessibility")
     override fun onTouchEvent(ev: MotionEvent): Boolean {
         if (ev.action == MotionEvent.ACTION_DOWN && mMediaController != null) {
-            toggleMediaControlsVisiblity()
+            toggleMediaControlsVisibility()
         }
         return super.onTouchEvent(ev)
     }
-    private fun toggleMediaControlsVisiblity() {
+    private fun toggleMediaControlsVisibility() {
         if (mMediaController!!.isShowing) {
             mMediaController!!.hide()
         } else {
@@ -77,7 +90,7 @@ class SurfaceMediaPlayerControl(context: Context?, attrs: AttributeSet?) : Surfa
         mMediaController!!.setMediaPlayer(this)
         val anchorView = if (this.parent is View) this.parent as View else this
         mMediaController!!.setAnchorView(anchorView)
-        mMediaController!!.setEnabled(true)
+        mMediaController!!.isEnabled = true
     }
 
 }

@@ -10,7 +10,6 @@ import android.util.Log
 import android.view.Surface
 import com.mag.slam3dvideo.utils.MoviePlayer
 import java.io.File
-import java.lang.ref.WeakReference
 import java.util.concurrent.BlockingQueue
 import java.util.concurrent.LinkedBlockingQueue
 import kotlin.math.abs
@@ -25,6 +24,7 @@ class VideoDecoder(
         private set
     var mVideoDuration: Long
         private set
+    private val INVALID_SEEK_TIME = -1L
     private var isStarted: Boolean = false
     private var trackIndex: Int
     private val TIMEOUT_USEC = 10000L
@@ -38,6 +38,7 @@ class VideoDecoder(
     private var frameCallback: MoviePlayer.FrameCallback? =frameCallback
 
     private var decodeFrameQueue: BlockingQueue<Long> = LinkedBlockingQueue(999)
+    private var seekTimeRequest: Long = INVALID_SEEK_TIME
 
     init {
         try {
@@ -153,11 +154,22 @@ class VideoDecoder(
                 Log.d(TAG, "Stop requested")
                 return
             }
-//            val frameTimeUs = decodeFrameQueue.take()
-//            if (frameTimeUs > mVideoDuration || frameTimeUs < 0)
-//                continue
-//            seekTo(frameTimeUs, extractor, 5)
-//            //extractor.seekTo(frameTimeUs,MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+
+            if(seekTimeRequest >= 0){
+                val timeToSeek = seekTimeRequest
+                seekTimeRequest = INVALID_SEEK_TIME
+                if(timeToSeek == 0L)
+                {
+                    extractor.seekTo(0, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
+                    decoder.flush()
+                }else
+                {
+                    val nearestTime = getNearestTime(timeToSeek,extractor)
+                    advanceTill(nearestTime,extractor)
+
+                }
+            }
+
 
             // Feed more data to the decoder.
             if (!inputDone) {
@@ -267,6 +279,93 @@ class VideoDecoder(
             }
         }
 
+    }
+
+    private fun advanceTill(nearestTime: Long, extractor: MediaExtractor) {
+        var shouldSeekMore = true
+        var outputDone = false
+        var inputDone = false
+        while (shouldSeekMore) {
+            // Feed more data to the decoder.
+            if (!inputDone) {
+                val inputBufIndex = decoder.dequeueInputBuffer(TIMEOUT_USEC.toLong())
+                if (inputBufIndex >= 0) {
+                    val inputBuf = decoder.getInputBuffer(inputBufIndex)
+                    val chunkSize = extractor.readSampleData(inputBuf!!, 0)
+                    if (chunkSize < 0) {
+                        // End of stream -- send empty frame with EOS flag set.
+                        decoder.queueInputBuffer(
+                            inputBufIndex, 0, 0, 0L,
+                            MediaCodec.BUFFER_FLAG_END_OF_STREAM
+                        )
+                        inputDone = true
+                        if (VERBOSE) Log.d(TAG, "sent input EOS")
+                    } else {
+                        if (extractor.sampleTrackIndex != trackIndex) {
+                            Log.w(
+                                TAG, "WEIRD: got sample from track " +
+                                        extractor.sampleTrackIndex + ", expected " + trackIndex
+                            )
+                        }
+                        val presentationTimeUs = extractor.sampleTime
+                        decoder.queueInputBuffer(
+                            inputBufIndex, 0, chunkSize,
+                            presentationTimeUs, 0 /*flags*/
+                        )
+                        extractor.advance()
+                    }
+                } else {
+                    if (VERBOSE) Log.d(TAG, "input buffer not available")
+                }
+            }
+            if (!outputDone) {
+                val bufferInfo = MediaCodec.BufferInfo()
+                val decoderStatus =
+                    decoder.dequeueOutputBuffer(bufferInfo, TIMEOUT_USEC.toLong())
+                if (decoderStatus == MediaCodec.INFO_TRY_AGAIN_LATER) {
+                    // no output available yet
+                    if (VERBOSE) Log.d(TAG, "no output from decoder available")
+                } else if (decoderStatus == MediaCodec.INFO_OUTPUT_BUFFERS_CHANGED) {
+                    // not important for us, since we're using Surface
+                    if (VERBOSE) Log.d(TAG, "decoder output buffers changed")
+                } else if (decoderStatus == MediaCodec.INFO_OUTPUT_FORMAT_CHANGED) {
+                    val newFormat = decoder.outputFormat
+                    if (VERBOSE) Log.d(TAG, "decoder output format changed: $newFormat")
+                } else if (decoderStatus < 0) {
+                    throw RuntimeException(
+                        "unexpected result from decoder.dequeueOutputBuffer: " +
+                                decoderStatus
+                    )
+                } else { // decoderStatus >= 0
+                    var doLoop = false
+                    if (VERBOSE) Log.d(
+                        TAG, "surface decoder given buffer " + decoderStatus +
+                                " (size=" + bufferInfo.size + ")"
+                    )
+                    if (bufferInfo.flags and MediaCodec.BUFFER_FLAG_END_OF_STREAM != 0) {
+                        if (VERBOSE) Log.d(TAG, "output EOS")
+                        if (true) {
+                            doLoop = true
+                        } else {
+                            outputDone = true
+                        }
+                    }
+                    val isThatTime = bufferInfo.presentationTimeUs == nearestTime
+                    if (isThatTime) {
+                        Log.d("DECOER", "This time $nearestTime")
+                    }
+                    shouldSeekMore = bufferInfo.presentationTimeUs < nearestTime && !isThatTime
+                    decoder.releaseOutputBuffer(decoderStatus, false)
+                    if (doLoop) {
+                        Log.d(TAG, "Reached EOS, looping")
+                        extractor.seekTo(0, MediaExtractor.SEEK_TO_CLOSEST_SYNC)
+                        decoder.flush() // reset decoder state
+                        frameCallback?.loopReset()
+                    }
+                }
+            }
+        }
+        decoder.flush()
     }
 
     private fun runWithSeek(extractor: MediaExtractor, trackIndex: Int, decoder: MediaCodec) {
@@ -477,6 +576,6 @@ class VideoDecoder(
     }
 
     fun seekTo(timeUsec: Long) {
-
+        seekTimeRequest = timeUsec
     }
 }

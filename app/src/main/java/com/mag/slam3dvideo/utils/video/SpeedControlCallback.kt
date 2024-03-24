@@ -119,6 +119,8 @@ class SpeedControlCallback(val callback: VideoPlaybackCallback?) : MoviePlayer.F
         callback?.postRender()
         synchronized(pauseResumeLock) {
             if (mIsPausedSignaled) {
+                mPrevMonoUsec =0
+                mPrevPresentUsec =0
                 pauseResumeLock.wait()
                 mIsPausedSignaled = false
             }

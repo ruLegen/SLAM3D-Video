@@ -1,22 +1,19 @@
 package com.mag.slam3dvideo.videmodels
 
 import android.app.Application
-import android.net.Uri
-import android.util.Log
+import android.content.Intent
 import android.view.View
-import android.widget.Button
-import androidx.databinding.Bindable
-import androidx.lifecycle.AndroidViewModel
-import androidx.lifecycle.LifecycleObserver
-import com.mag.slam3dvideo.BR
+import com.mag.slam3dvideo.ui.MapViewActivity
 import com.mag.slam3dvideo.ui.components.VideoTimelineView
 
-class VideoViewerViewModel(application: Application) : ObservableViewModel(application){
-    var fileSelected:((file:String?) -> Unit)? = null
+class VideoViewerViewModel(application: Application) : ObservableViewModel(application) {
+    var fileSelected: ((file: String?) -> Unit)? = null
 
     var mediaSelectClicked: (() -> Unit)? = null
 
-    var file:String? = "/storage/emulated/0/DCIM/Camera/PXL_20230318_132255477.mp4"
+    //    var file:String? = "/storage/emulated/0/DCIM/Camera/PXL_20230318_132255477.mp4"
+    var file: String? = "/storage/emulated/0/DCIM/Camera/PXL_20240223_143249538.mp4"
+
     var timeLineDelegate: VideoTimelineView.VideoTimelineViewDelegate? = null
     var progress: Float = 0f
 
@@ -25,11 +22,20 @@ class VideoViewerViewModel(application: Application) : ObservableViewModel(appli
     }
 
 
-    fun clicked(view:View){
+    fun clicked(view: View) {
         mediaSelectClicked?.invoke()
     }
 
-    fun onMediaSelected(path: String?){
+    fun nextClicked(view: View) {
+        val appConext = getApplication<Application>()
+        val intent = Intent(appConext, MapViewActivity::class.java)
+        intent.putExtra("path", file)
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_TASK_ON_HOME)
+        getApplication<Application>().startActivity(intent);
+
+    }
+
+    fun onMediaSelected(path: String?) {
         file = path
     }
 }

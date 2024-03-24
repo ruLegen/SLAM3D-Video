@@ -35,7 +35,7 @@ class OrbFrameInfoHolder(frameCount:Int) {
         keyPoints[frameNumber] = points
     }
     fun getCameraPosAtFrame(frameNumber: Int) : MatShared? {
-        if(frameNumber >= frameCount)
+        if(frameNumber >= frameCount||frameNumber<0)
             return null
         return tcwList[frameNumber]
     }
@@ -43,7 +43,7 @@ class OrbFrameInfoHolder(frameCount:Int) {
      * @param frameNumber from 0 to (@frameCount-1)
      */
     fun getKeypointsAtFrame(frameNumber:Int):List<KeyPoint>?{
-        if(frameNumber >= frameCount)
+        if(frameNumber >= frameCount || frameNumber <0)
             return  null
         return keyPoints[frameNumber]
     }

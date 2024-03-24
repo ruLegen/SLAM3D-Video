@@ -18,7 +18,7 @@ class SurfaceMediaPlayerControl(context: Context?, attrs: AttributeSet?) : Surfa
     MediaPlayerControl {
     private var mMediaController: MediaController? = null
     var mediaControlCallback: MediaPlayerControlCallback? = null
-    var mIsPlaying:Boolean = false
+    var mIsPlaying:Boolean = true
         private set
     override fun start() {
         mIsPlaying =true

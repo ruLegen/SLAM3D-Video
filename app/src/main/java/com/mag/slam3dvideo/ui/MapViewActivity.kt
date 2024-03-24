@@ -3,10 +3,12 @@ package com.mag.slam3dvideo.ui
 import android.animation.ValueAnimator
 import android.annotation.SuppressLint
 import android.graphics.Bitmap
+import android.graphics.RectF
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.util.SizeF
 import android.view.Choreographer
 import android.view.Surface
 import android.view.SurfaceView
@@ -36,14 +38,17 @@ import com.mag.slam3dvideo.scenes.VideoScene
 import com.mag.slam3dvideo.ui.components.SurfaceMediaPlayerControl
 import com.mag.slam3dvideo.utils.AssetUtils
 import com.mag.slam3dvideo.utils.BufferQueue
+import com.mag.slam3dvideo.utils.MoviePlayer
 import com.mag.slam3dvideo.utils.OrbFrameInfoHolder
 import com.mag.slam3dvideo.utils.TaskRunner
+import com.mag.slam3dvideo.utils.video.VideoDecoder
 import com.mag.slam3dvideo.utils.video.VideoFrameRetriever
 import org.opencv.android.OpenCVLoader
 import java.io.Closeable
+import java.io.File
 
 
-class MapViewActivity : AppCompatActivity() {
+class MapViewActivity : AppCompatActivity(), MoviePlayer.FrameCallback{
     data class BitmapItem(var frameNumber: Int, var bitmap: Bitmap?) :Closeable{
         override fun close() {
             try {
@@ -64,7 +69,7 @@ class MapViewActivity : AppCompatActivity() {
     }
 
 
-    private lateinit var previewVideoRetriever: VideoFrameRetriever
+    private lateinit var videoDecoder: VideoDecoder
     private lateinit var binding: ActivityMapViewBinding
     private lateinit var infoText: TextView
     private var plane: Plane? = null
@@ -111,7 +116,6 @@ class MapViewActivity : AppCompatActivity() {
 
         setupSurfaceView()
         setupFilament()
-        setupScenes()
         if (!AssetUtils.askMediaPermissions(this, 1)) {
             initVideoFrameGraber()
         }
@@ -156,7 +160,7 @@ class MapViewActivity : AppCompatActivity() {
     }
 
     private fun setupScenes() {
-        videoScene = VideoScene(surfaceView)
+        videoScene = VideoScene(surfaceView, videoRetriever!!.frameSize)
         keypointsScene = KeypointsScene(surfaceView)
         objectScene = ObjectScene(surfaceView)
         allScenes().forEach { it.init(engine) }
@@ -192,15 +196,16 @@ class MapViewActivity : AppCompatActivity() {
     }
 
     private fun initVideoFrameGraber() {
-        frameBufferQueue = BufferQueue(15)
+        frameBufferQueue = BufferQueue(7)
         videoRetriever = VideoFrameRetriever(file);
-        previewVideoRetriever = VideoFrameRetriever(file);
 
         setInfoText("Initializing OrbSlamProcessor")
         val orbAssets = AssetUtils.getOrbFileAssets(this)
         orbProcessor = OrbSlamProcessor(orbAssets.vocabFile, orbAssets.configFile)
         videoRetriever!!.initialize()
-        previewVideoRetriever.initialize()
+
+        setupScenes()
+        videoDecoder = VideoDecoder(File(file),videoScene.surface,this)
         orbFrameInfoHolder = OrbFrameInfoHolder(videoRetriever!!.frameCount.toInt())
         imagePreviewTaskRunner = TaskRunner()
         imageDecoderTaskRunner = TaskRunner().apply {
@@ -266,10 +271,12 @@ class MapViewActivity : AppCompatActivity() {
             }
             val keys = orbProcessor.getCurrentFrameKeyPoints()
             orbFrameInfoHolder.setKeypointsAtFrame(frameNumber, keys)
+        }
+        i++
             if (i == 1) {
+                videoDecoder.start()
                 imagePreviewTaskRunner?.executeAsync({ previewImage(0) })
             }
-        }
         keypointsScene.drawingRect = videoScene.drawingRect
         keypointsScene.setBitmapInfo(videoScene.bitmapStretch, videoScene.bitmapSize)
 
@@ -286,15 +293,14 @@ class MapViewActivity : AppCompatActivity() {
             return
         val cameraPos = orbFrameInfoHolder.getCameraPosAtFrame(frameNumber)
         val points = orbFrameInfoHolder.getKeypointsAtFrame(frameNumber)
-        val bitmap = previewVideoRetriever.getFrame(frameNumber)
-        if(bitmap == null){
-            imagePreviewTaskRunner?.executeAsync({ previewImage(frameNumber + 1) })
-            return
-        }
-        videoScene.processBitmap(bitmap)
+        val size = videoRetriever!!.frameSize
+        val frameDurationMs = videoRetriever!!.durationMs.toFloat()/videoRetriever!!.frameCount
+        val frameTimeMs = frameNumber * frameDurationMs
+        videoDecoder.decodeAtTime((frameTimeMs*1000L).toLong())
+        videoScene.processBitmap(RectF(0f,0f,size.width,size.height))
         objectScene.updateCameraMatrix(cameraPos)
         keypointsScene.updateKeypoints(points)
-        bitmap.recycle()
+//        Thread.sleep(100)
         imagePreviewTaskRunner?.executeAsync({ previewImage(frameNumber + 1) })
     }
 
@@ -344,6 +350,7 @@ class MapViewActivity : AppCompatActivity() {
             if (uiHelper.isReadyToRender) {
                 // If beginFrame() returns false you should skip the frame
                 // This means you are sending frames too quickly to the GPU
+
                 if (renderer.beginFrame(swapChain!!, frameTimeNanos)) {
                     allScenes().forEach {
                         it.render(renderer)
@@ -392,6 +399,16 @@ class MapViewActivity : AppCompatActivity() {
             }
             FilamentHelper.synchronizePendingFrames(engine)
         }
+    }
+
+    override fun preRender(presentationTimeUsec: Long) {
+    }
+
+    override fun postRender() {
+//        videoScene.pushExternalImageToFilament()
+    }
+
+    override fun loopReset() {
     }
 
 

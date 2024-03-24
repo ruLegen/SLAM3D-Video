@@ -1,7 +1,8 @@
 package com.mag.slam3dvideo.ui
 
-import android.opengl.GLES20
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Surface
 import android.view.SurfaceHolder
@@ -14,13 +15,18 @@ import android.widget.Spinner
 import androidx.appcompat.app.AppCompatActivity
 import com.mag.slam3dvideo.R
 import com.mag.slam3dvideo.utils.MoviePlayer
+import com.mag.slam3dvideo.utils.TaskRunner
+import com.mag.slam3dvideo.utils.TextureSurface
 import com.mag.slam3dvideo.utils.video.VideoDecoder
+import com.mag.slam3dvideo.utils.video.VideoFrameRetriever
 import java.io.File
 import java.io.IOException
 
 
 class CodecActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener,
     SurfaceHolder.Callback, MoviePlayer.PlayerFeedback {
+    private lateinit var text: TextureSurface
+    private lateinit var taskRunner: TaskRunner
     var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240223_143249538.mp4"
     private val TAG: String = "CodecActivity"
 
@@ -36,7 +42,7 @@ class CodecActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener,
      * the same views (or compatible) as active_play_movie_surface
      *
      */
-    lateinit var videoDecoder:VideoDecoder
+    var videoDecoder:VideoDecoder? = null
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_codec)
@@ -60,7 +66,6 @@ class CodecActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener,
         spinner.adapter = adapter
         spinner.setOnItemSelectedListener(this)
         updateControls()
-
 
     }
 
@@ -197,13 +202,47 @@ class CodecActivity : AppCompatActivity(), AdapterView.OnItemSelectedListener,
         // send a video stream to the SurfaceView before it has initialized, so we disable
         // the "play" button until this callback fires.
         Log.d(TAG, "surfaceCreated")
+
         mSurfaceHolderReady = true
+        taskRunner = TaskRunner()
+        val retriever = VideoFrameRetriever(file)
+        retriever.initialize()
+
+        text = TextureSurface(
+            retriever.frameSize.width.toInt(),
+            retriever.frameSize.height.toInt(),
+            Handler(Looper.myLooper()!!)
+        )
         Thread{
-            videoDecoder = VideoDecoder(File(file), mSurfaceView?.holder?.surface)
+            videoDecoder = VideoDecoder(File(file),text.mSurface)
+            videoDecoder?.start()
         }.apply {
             start()
         }
+        taskRunner.executeAsync({
+            putFrame(0,retriever.frameCount.toInt())
+        })
         updateControls()
+    }
+
+    private fun putFrame(currentFrame: Int, maxFrames: Int){
+        if(videoDecoder == null){
+            Thread.sleep(500)
+            taskRunner.executeAsync({
+                putFrame(currentFrame,maxFrames)
+            })
+            return
+        }
+        if(currentFrame > maxFrames)
+            return
+
+        val frameDuration = videoDecoder!!.mVideoDuration/ maxFrames.toFloat()
+        val frameTime = currentFrame*frameDuration
+        videoDecoder?.decodeAtTime(frameTime.toLong())
+        //Thread.sleep(33)
+        taskRunner.executeAsync({
+            putFrame(currentFrame+1,maxFrames)
+        })
     }
 
     override fun surfaceChanged(holder: SurfaceHolder, format: Int, width: Int, height: Int) {

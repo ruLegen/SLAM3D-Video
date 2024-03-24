@@ -1,10 +1,14 @@
 package com.mag.slam3dvideo.scenes
 
-import android.graphics.Bitmap
+import android.graphics.ImageFormat
 import android.graphics.RectF
+import android.media.Image
+import android.media.ImageReader
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.util.SizeF
+import android.view.Surface
 import android.view.SurfaceView
 import com.google.android.filament.Box
 import com.google.android.filament.Camera
@@ -18,6 +22,7 @@ import com.google.android.filament.RenderableManager
 import com.google.android.filament.Renderer
 import com.google.android.filament.Scene
 import com.google.android.filament.Skybox
+import com.google.android.filament.Stream
 import com.google.android.filament.Texture
 import com.google.android.filament.TextureSampler
 import com.google.android.filament.VertexBuffer
@@ -25,22 +30,35 @@ import com.google.android.filament.View
 import com.google.android.filament.Viewport
 import com.google.android.filament.filamat.MaterialBuilder
 import com.mag.slam3dvideo.utils.MathHelpers
-import com.mag.slam3dvideo.utils.TextureUtils
+import com.mag.slam3dvideo.utils.TextureSurface
 import com.mag.slam3dvideo.utils.bitmap.BitmapAlignment
 import com.mag.slam3dvideo.utils.bitmap.BitmapStretch
 import com.mag.slam3dvideo.utils.bitmap.getTransform
+import org.opencv.core.CvType.CV_8UC1
+import org.opencv.core.Mat
+import org.opencv.imgproc.Imgproc
+import org.opencv.imgproc.Imgproc.cvtColor
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import java.util.concurrent.CountDownLatch
 
-class VideoScene(private val surfaceView: SurfaceView) : OrbScene {
+
+class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF) : OrbScene {
+    private lateinit var tex: TextureSurface
+    private var hasImages: Boolean =false
+    private lateinit var imageReader: ImageReader
+    private lateinit var filamentStream: Stream
+    private lateinit var filamentTexture: Texture
     private lateinit var view: View
     var drawingRect: RectF = RectF()
         private set
     var bitmapStretch: BitmapStretch = BitmapStretch.Fill
-        private  set
-    var bitmapSize:SizeF = SizeF(0f,0f)
         private set
+    var bitmapSize: SizeF = bitmapSize
+        private set
+
+    val surface: Surface
+        get() = tex.mSurface
+
     private lateinit var scene: Scene
     private lateinit var camera: Camera
     private var matInstance: MaterialInstance? = null
@@ -58,19 +76,55 @@ class VideoScene(private val surfaceView: SurfaceView) : OrbScene {
     private lateinit var engine: Engine
     private val handler = Handler(Looper.getMainLooper())
 
+    init {
+    }
     override fun init(e: Engine) {
+        tex = TextureSurface(bitmapSize.width.toInt(),bitmapSize.height.toInt(),Handler(Looper.myLooper()!!),{
+            val newBuffer = Texture.PixelBufferDescriptor(it, Texture.Format.RGBA, Texture.Type.UBYTE)
+            videoTexture.setImage(engine, 0, newBuffer)
+        })
         engine = e
         view = engine.createView()
-
         scene = engine.createScene()
         camera = engine.createCamera(engine.entityManager.create())
-
+        imageReader = ImageReader.newInstance(
+            bitmapSize.width.toInt(),
+            bitmapSize.height.toInt(),
+            ImageFormat.YUV_420_888,
+            7
+        )
+        hasImages = false
+//        imageReader.setOnImageAvailableListener(OnImageAvailableListener {
+////            Log.d("image reader","Image available")
+//            hasImages = true
+//        }, Handler(Looper.getMainLooper()))
         loadMaterial()
         createMesh()
         createTexture()
+        filamentTexture = Texture.Builder()
+            .sampler(Texture.Sampler.SAMPLER_EXTERNAL)
+            .format(Texture.InternalFormat.RGBA8)
+            .build(engine)
 
+        videoTexture = Texture.Builder()
+            .sampler(Texture.Sampler.SAMPLER_2D)
+            .format(Texture.InternalFormat.RGBA8)
+            .width(bitmapSize.width.toInt())
+            .height(bitmapSize.height.toInt())
+            .levels(0xFF)
+            .build(engine)
+
+        filamentStream = Stream
+            .Builder()
+            .width(bitmapSize.width.toInt())
+            .height(bitmapSize.height.toInt())
+            .build(engine)
+
+        filamentTexture.setExternalStream(engine, filamentStream)
         renderable = EntityManager.get().create()
         matInstance = material.createInstance()
+        matInstance!!.setParameter("videoTexture", videoTexture, videoTextureSampler)
+
         RenderableManager.Builder(1)
             .boundingBox(Box(0.0f, 0.0f, 0.0f, 1.0f, 1.0f, 1.0f))
             .geometry(
@@ -96,26 +150,17 @@ class VideoScene(private val surfaceView: SurfaceView) : OrbScene {
     }
 
     override fun render(renderer: Renderer) {
+        if(hasImages){
+            pushExternalImageToFilament()
+            hasImages= false
+        }
         renderer.render(view)
 
     }
 
 
     private fun createTexture() {
-        videoTexture = Texture.Builder()
-            .width(1)
-            .height(1)
-            .levels(1)
-            .format(Texture.InternalFormat.RGBA8)
-            .sampler(Texture.Sampler.SAMPLER_2D)
-            .build(engine)
-        var buffer =
-            Texture.PixelBufferDescriptor(
-                ByteBuffer.allocate(128),
-                Texture.Format.RGBA,
-                Texture.Type.UBYTE
-            );
-        videoTexture.setImage(engine, 0, buffer);
+
     }
 
     override fun destroy(engine: Engine) {
@@ -147,6 +192,69 @@ class VideoScene(private val surfaceView: SurfaceView) : OrbScene {
                 )
             }
             engine.flush()
+        }
+    }
+    fun toRGB(image: Image?) : ByteArray? {
+        try {
+            if (image != null) {
+                val planes = image.planes
+                if(planes == null || planes.size != 3)
+                    return null
+
+                val nv21: ByteArray
+                val yBuffer: ByteBuffer = planes[0].buffer
+                val uBuffer: ByteBuffer = planes[1].buffer
+                val vBuffer: ByteBuffer = planes[2].buffer
+                val ySize = yBuffer.remaining()
+                val uSize = uBuffer.remaining()
+                val vSize = vBuffer.remaining()
+                nv21 = ByteArray(ySize + uSize + vSize)
+
+                //U and V are swapped
+                yBuffer[nv21, 0, ySize]
+                vBuffer[nv21, ySize, vSize]
+                uBuffer[nv21, ySize + vSize, uSize]
+
+                //val r = IntArray(image.width*image.height)
+                //GPUImageNativeLibrary.YUVtoRBGA(nv21,image.width,image.height,r)
+                return nv21
+            }
+        } catch (e: java.lang.Exception) {
+            Log.w("TTT", e.message!!)
+        } finally {
+        }
+        return  null
+    }
+
+
+    fun getYUV2Mat(data: ByteArray?,image:Image): Mat {
+        val mYuv = Mat(image.height + image.height / 2, image.width, CV_8UC1)
+        mYuv.put(0, 0, data)
+        val mRGB = Mat()
+        cvtColor(mYuv, mRGB, Imgproc.COLOR_YUV2RGB_NV21, 3)
+        return mRGB
+    }
+    fun pushExternalImageToFilament() {
+        val stream = filamentStream
+        try {
+            imageReader.acquireLatestImage()?.also {
+                try {
+                    val rgbaMat = toRGB(it)
+                    if(rgbaMat != null){
+                        val b = ByteBuffer.allocateDirect(rgbaMat.size)
+                            .order(ByteOrder.nativeOrder())
+                        b.put(rgbaMat)
+                        b.flip()
+                        val newBuffer = Texture.PixelBufferDescriptor(b, Texture.Format.R, Texture.Type.UBYTE)
+                        videoTexture.setImage(engine, 0, newBuffer)
+                        matInstance!!.setParameter("videoTexture", videoTexture, videoTextureSampler)
+                    }
+                } finally {
+                    it.close()
+                }
+            }
+        } catch (exx: Exception) {
+            val i = 0
         }
     }
 
@@ -239,65 +347,63 @@ class VideoScene(private val surfaceView: SurfaceView) : OrbScene {
         )
     }
 
-    fun processBitmap(bitmap: Bitmap) {
-        bitmapSize = SizeF(bitmap.width.toFloat(),bitmap.height.toFloat())
+    fun processBitmap(bitmapRect: RectF) {
+//        bitmapSize = SizeF(bitmap.width.toFloat(), bitmap.height.toFloat())
+//        val textureW = videoTexture.getWidth(0)
+//        val textureH = videoTexture.getHeight(0)
+//        var processTexture = videoTexture
 
-        val textureW = videoTexture.getWidth(0)
-        val textureH = videoTexture.getHeight(0)
-        var processTexture = videoTexture
-
-        if (textureW != bitmap.width || textureH != bitmap.height) {
-            val latch = CountDownLatch(1)
-            handler.post(Runnable { // Code to run on the UI thread
-                val newTexture = Texture.Builder()
-                    .width(bitmap.width)
-                    .height(bitmap.height)
-                    .levels(0xff)
-                    .format(Texture.InternalFormat.RGBA8)
-                    .sampler(Texture.Sampler.SAMPLER_2D)
-                    .build(engine);
-                processTexture = newTexture
-//                view.viewport = Viewport(dstRect.left.toInt(),dstRect.top.toInt(),dstRect.width().toInt(),dstRect.height().toInt())
-                latch.countDown()
-            })
-            try {
-                latch.await()
-            } catch (ex: Exception) {
-            }
-        }
+//        if (textureW != bitmap.width || textureH != bitmap.height) {
+//            val latch = CountDownLatch(1)
+//            handler.post(Runnable { // Code to run on the UI thread
+//                val newTexture = Texture.Builder()
+//                    .width(bitmap.width)
+//                    .height(bitmap.height)
+//                    .levels(0xff)
+//                    .format(Texture.InternalFormat.RGBA8)
+//                    .sampler(Texture.Sampler.SAMPLER_2D)
+//                    .build(engine);
+//                processTexture = newTexture
+////                view.viewport = Viewport(dstRect.left.toInt(),dstRect.top.toInt(),dstRect.width().toInt(),dstRect.height().toInt())
+//                latch.countDown()
+//            })
+//            try {
+//                latch.await()
+//            } catch (ex: Exception) {
+//            }
+//        }
 
         var surfaceRect = RectF(0f, 0f, surfaceView.width.toFloat(), surfaceView.height.toFloat())
-        drawingRect = bitmap.getTransform(
+        drawingRect = bitmapRect.getTransform(
             surfaceRect,
             bitmapStretch,
             BitmapAlignment.Center,
             BitmapAlignment.Center
         )
 
-        var tx = MathHelpers.map(drawingRect.left,0f,surfaceRect.width(),0f,1f)
-        var ty = MathHelpers.map(drawingRect.top,0f,surfaceRect.height(),0f,1f)
+        var tx = MathHelpers.map(drawingRect.left, 0f, surfaceRect.width(), 0f, 1f)
+        var ty = MathHelpers.map(drawingRect.top, 0f, surfaceRect.height(), 0f, 1f)
         tx = if (tx.isNaN() || !tx.isFinite()) 0f else tx
         ty = if (ty.isNaN() || !ty.isFinite()) 0f else ty
         val sx = drawingRect.width() / surfaceRect.width()
         val sy = drawingRect.height() / surfaceRect.height()
         val transformMatrix = FloatArray(16)
         android.opengl.Matrix.setIdentityM(transformMatrix, 0);
-        android.opengl.Matrix.orthoM(transformMatrix, 0, 0f, 1f, 1f,0f,-1f,1f);
+        android.opengl.Matrix.orthoM(transformMatrix, 0, 0f, 1f, 1f, 0f, -1f, 1f);
         android.opengl.Matrix.translateM(transformMatrix, 0, tx, ty, 0f);
         android.opengl.Matrix.scaleM(transformMatrix, 0, sx, sy, 1f);
+//        val format = TextureUtils.format(bitmap)
+//        val type = TextureUtils.type(bitmap)
 
-        val format = TextureUtils.format(bitmap)
-        val type = TextureUtils.type(bitmap)
-
-        val buffer = ByteBuffer.allocateDirect(bitmap.byteCount)
-        bitmap.copyPixelsToBuffer(buffer)
-        buffer.flip()
-        val latch = CountDownLatch(1)
+//        val buffer = ByteBuffer.allocateDirect(bitmap.byteCount)
+//        bitmap.copyPixelsToBuffer(buffer)
+//        buffer.flip()
+//        val latch = CountDownLatch(1)
         handler.post {
-            val newBuffer = Texture.PixelBufferDescriptor(buffer, format, type)
-            processTexture.setImage(engine, 0, newBuffer)
-            videoTexture = processTexture
-            matInstance?.setParameter("videoTexture", videoTexture, videoTextureSampler)
+//            val newBuffer = Texture.PixelBufferDescriptor(buffer, format, type)
+//            processTexture.setImage(engine, 0, newBuffer)
+//            videoTexture = processTexture
+//            matInstance?.setParameter("videoTexture", videoTexture, videoTextureSampler)
             matInstance?.setParameter(
                 "vertexTransform",
                 MaterialInstance.FloatElement.MAT4,
@@ -305,13 +411,10 @@ class VideoScene(private val surfaceView: SurfaceView) : OrbScene {
                 0,
                 1
             )
-            latch.countDown()
-        }
-        try {
-           // latch.await()
-        } catch (ex: Exception) {
+//            latch.countDown()
         }
     }
+
     private fun generateMaterial(): ByteBuffer {
         val mat = MaterialBuilder()
             .name("backed_color")
@@ -344,7 +447,8 @@ class VideoScene(private val surfaceView: SurfaceView) : OrbScene {
                 """
                void material(inout MaterialInputs material) {
                    prepareMaterial(material);
-                   material.baseColor =  texture(materialParams_videoTexture, getUV0());
+                   vec4 bc =texture(materialParams_videoTexture, getUV0());
+                   material.baseColor =  bc;
                }
             """
             )

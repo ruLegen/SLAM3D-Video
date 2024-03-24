@@ -5,22 +5,27 @@ import android.graphics.RectF
 import android.util.SizeF
 import com.mag.slam3dvideo.utils.bitmap.BitmapUtils.calculateDisplayRect
 import com.mag.slam3dvideo.utils.bitmap.BitmapUtils.computeScale
-
+fun RectF.getTransform( dest: RectF,
+                        stretch: BitmapStretch,
+                        horizontal: BitmapAlignment = BitmapAlignment.Center,
+                        vertical: BitmapAlignment = BitmapAlignment.Center):RectF{
+    if(stretch == BitmapStretch.Fill)
+        return dest
+    val dstSize = SizeF(dest.width(), dest.height())
+    val srcSize = SizeF(this.width(), this.height())
+    val scale = computeScale(dstSize, srcSize, stretch)
+    val dstRect = calculateDisplayRect(
+        dest, scale * this.width(), scale * this.height(), horizontal, vertical
+    );
+    return dstRect
+}
 fun Bitmap.getTransform(
     dest: RectF,
     stretch: BitmapStretch,
     horizontal: BitmapAlignment = BitmapAlignment.Center,
     vertical: BitmapAlignment = BitmapAlignment.Center
 ): RectF {
-    if(stretch == BitmapStretch.Fill)
-        return dest
-    val dstSize = SizeF(dest.width(), dest.height())
-    val srcSize = SizeF(this.width.toFloat(), this.height.toFloat())
-    val scale = computeScale(dstSize, srcSize, stretch)
-    val dstRect = calculateDisplayRect(
-        dest, scale * this.width, scale * this.height, horizontal, vertical
-    );
-    return dstRect
+    return RectF(0f,0f,this.width.toFloat(),this.height.toFloat())
 }
 
 object BitmapUtils {

@@ -4,9 +4,13 @@ import android.graphics.Bitmap
 import android.media.MediaMetadataRetriever
 import android.media.MediaMetadataRetriever.BitmapParams
 import android.media.MediaMetadataRetriever.OPTION_CLOSEST
+import android.util.SizeF
+import android.view.Surface
 import java.io.FileInputStream
 
 class VideoFrameRetriever(videoPath: String) {
+    var frameSize: SizeF = SizeF(0f,0f)
+        private set
     var initialized: Boolean =false
         private set
     var durationMs: Long = 0
@@ -15,7 +19,6 @@ class VideoFrameRetriever(videoPath: String) {
         private set
     var frameCount: Long = 0
         private set
-
     private val mediaMetadataRetriever = MediaMetadataRetriever()
     private var filePath: String = videoPath
     private var bitmapDecodeParams : BitmapParams
@@ -30,6 +33,9 @@ class VideoFrameRetriever(videoPath: String) {
         durationMs = mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)?.toLong() ?: -1
         capturedFps = mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_CAPTURE_FRAMERATE)?.toFloat() ?: 0f
         frameCount = mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_FRAME_COUNT)?.toLong() ?: -1
+        val w  =mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_WIDTH)?.toLong() ?: 0
+        val h  =mediaMetadataRetriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_VIDEO_HEIGHT)?.toLong() ?: 0
+        frameSize = SizeF(w.toFloat(),h.toFloat())
         initialized = true
         return true;
     }

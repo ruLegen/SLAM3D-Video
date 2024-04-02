@@ -69,6 +69,10 @@ class ObjectScene(private val surfaceView: SurfaceView) :OrbScene{
 
     }
 
+    override fun beforeRender(renderer: Renderer) {
+
+    }
+
     override fun render(renderer: Renderer) {
         if(plane == null)
             return

@@ -7,6 +7,7 @@ import com.google.android.filament.View
 interface OrbScene {
     fun init(engine: Engine)
     fun activate()
+    fun beforeRender(renderer: Renderer)
     fun render(renderer: Renderer)
     fun onResize(width: Int, height: Int)
     fun destroy(engine: Engine)

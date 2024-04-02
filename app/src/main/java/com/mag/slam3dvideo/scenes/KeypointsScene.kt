@@ -71,6 +71,10 @@ class KeypointsScene(private val surfaceView: SurfaceView) :OrbScene{
 
     }
 
+    override fun beforeRender(renderer: Renderer) {
+
+    }
+
     override fun render(renderer: Renderer) {
         renderer.render(view)
     }

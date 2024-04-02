@@ -4,7 +4,7 @@ import android.util.Log
 import com.mag.slam3dvideo.utils.MoviePlayer
 
 interface VideoPlaybackCallback {
-    fun preRender(progress: Float)
+    fun preRender(time: Long)
     fun postRender()
 }
 
@@ -28,7 +28,7 @@ class SpeedControlCallback(val callback: VideoPlaybackCallback?) : MoviePlayer.F
 
     // runs on decode thread
     override fun preRender(presentationTimeUsec: Long) {
-        callback?.preRender(presentationTimeUsec / mTotalDuraionUsec)
+        callback?.preRender(presentationTimeUsec )
         // For the first frame, we grab the presentation time from the video
         // and the current monotonic clock time.  For subsequent frames, we
         // sleep for a bit to try to ensure that we're rendering frames at the

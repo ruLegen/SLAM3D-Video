@@ -40,9 +40,18 @@ import org.opencv.imgproc.Imgproc
 import org.opencv.imgproc.Imgproc.cvtColor
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
+import kotlin.math.roundToInt
 
-
-class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF) : OrbScene {
+interface VideoFrameListener
+{
+    fun frameIsAboutToDraw(timestamp:Long);
+}
+class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF ) : OrbScene {
+    companion object{
+        const val TAG="VideoScene"
+    }
+    private var frameListener: VideoFrameListener? = null
+    private var lastVideoFrameTimeUsec: Long = 0
     private lateinit var tex: TextureSurface
     private var hasImages: Boolean =false
     private lateinit var imageReader: ImageReader
@@ -79,10 +88,12 @@ class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF) : OrbS
     init {
     }
     override fun init(e: Engine) {
-        tex = TextureSurface(bitmapSize.width.toInt(),bitmapSize.height.toInt(),Handler(Looper.myLooper()!!),{
-            val newBuffer = Texture.PixelBufferDescriptor(it, Texture.Format.RGBA, Texture.Type.UBYTE)
+        tex = TextureSurface(bitmapSize.width.toInt(),bitmapSize.height.toInt(),Handler(Looper.myLooper()!!)) { buf, timestamp ->
+            val newBuffer = Texture.PixelBufferDescriptor(buf, Texture.Format.RGBA, Texture.Type.UBYTE)
             videoTexture.setImage(engine, 0, newBuffer)
-        })
+            Log.d("tex","texture $timestamp")
+            lastVideoFrameTimeUsec = timestamp
+        }
         engine = e
         view = engine.createView()
         scene = engine.createScene()
@@ -149,13 +160,13 @@ class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF) : OrbS
 
     }
 
-    override fun render(renderer: Renderer) {
-        if(hasImages){
-            pushExternalImageToFilament()
-            hasImages= false
-        }
-        renderer.render(view)
+    override fun beforeRender(renderer: Renderer) {
+        val time = lastVideoFrameTimeUsec;
+        frameListener?.frameIsAboutToDraw(time)
+    }
 
+    override fun render(renderer: Renderer) {
+        renderer.render(view)
     }
 
 
@@ -177,7 +188,9 @@ class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF) : OrbS
         entityManager.destroy(renderable)
         entityManager.destroy(camera.entity)
     }
-
+    fun setVideoFrameListener(listener: VideoFrameListener){
+        frameListener = listener
+    }
     private fun loadMaterial() {
         generateMaterial().let {
             material = Material.Builder().payload(it, it.remaining()).build(engine)
@@ -234,30 +247,6 @@ class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF) : OrbS
         cvtColor(mYuv, mRGB, Imgproc.COLOR_YUV2RGB_NV21, 3)
         return mRGB
     }
-    fun pushExternalImageToFilament() {
-        val stream = filamentStream
-        try {
-            imageReader.acquireLatestImage()?.also {
-                try {
-                    val rgbaMat = toRGB(it)
-                    if(rgbaMat != null){
-                        val b = ByteBuffer.allocateDirect(rgbaMat.size)
-                            .order(ByteOrder.nativeOrder())
-                        b.put(rgbaMat)
-                        b.flip()
-                        val newBuffer = Texture.PixelBufferDescriptor(b, Texture.Format.R, Texture.Type.UBYTE)
-                        videoTexture.setImage(engine, 0, newBuffer)
-                        matInstance!!.setParameter("videoTexture", videoTexture, videoTextureSampler)
-                    }
-                } finally {
-                    it.close()
-                }
-            }
-        } catch (exx: Exception) {
-            val i = 0
-        }
-    }
-
     private fun createMesh() {
         val vertexSize = 6 * Float.SIZE_BYTES
 
@@ -454,5 +443,13 @@ class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF) : OrbS
             )
             .build()
         return mat.buffer
+    }
+
+    fun setTotalDuration(mVideoDuration: Long) {
+        tex.totalDurationUsec = mVideoDuration
+    }
+
+    fun setTotalFrameCount(frameCount: Long) {
+        tex.frameCount = frameCount
     }
 }

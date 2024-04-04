@@ -10,31 +10,36 @@
     <uses-permission android:name="android.permission.INTERNET" />
 
     <application
-        android:requestLegacyExternalStorage="true"
         android:allowBackup="true"
         android:dataExtractionRules="@xml/data_extraction_rules"
         android:fullBackupContent="@xml/backup_rules"
         android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
+        android:requestLegacyExternalStorage="true"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.SLAM3DVideo"
         tools:targetApi="31">
         <activity
+            android:name=".ui.DebugActivity"
+            android:exported="true"
+            android:screenOrientation="userLandscape"
+            android:theme="@style/Theme.SLAM3DVideo.NoActionBar" />
+
+        <activity
             android:name=".ui.CodecActivity"
-            android:exported="true" android:theme="@style/Theme.SLAM3DVideo.NoActionBar"/>
+            android:exported="true"
+            android:theme="@style/Theme.SLAM3DVideo.NoActionBar" />
         <activity
             android:name=".ui.VideoViewerActivity"
             android:exported="true"
             android:screenOrientation="userLandscape"
             android:theme="@style/Theme.SLAM3DVideo.NoActionBar">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
 
-             <intent-filter>
-             <action android:name="android.intent.action.MAIN" />
-
-
-             <category android:name="android.intent.category.LAUNCHER" />
-             </intent-filter>
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
         </activity>
         <activity
             android:name=".ui.MainActivity"
@@ -48,19 +53,20 @@
             <!-- </intent-filter> -->
             <meta-data
                 android:name="android.app.lib_name"
-                android:value=""
-                />
+                android:value="" />
         </activity>
         <activity
             android:name=".ui.MapViewActivity"
             android:exported="true"
             android:screenOrientation="userLandscape"
             android:theme="@style/Theme.SLAM3DVideo.NoActionBar">
-<!--            <intent-filter>-->
-<!--                <action android:name="android.intent.action.MAIN" />-->
 
-<!--                <category android:name="android.intent.category.LAUNCHER" />-->
-<!--            </intent-filter>-->
+            <!-- <intent-filter> -->
+            <!-- <action android:name="android.intent.action.MAIN" /> -->
+
+
+            <!-- <category android:name="android.intent.category.LAUNCHER" /> -->
+            <!-- </intent-filter> -->
 
             <meta-data
                 android:name="android.app.lib_name"

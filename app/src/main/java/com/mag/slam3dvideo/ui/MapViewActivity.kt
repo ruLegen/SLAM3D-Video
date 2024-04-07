@@ -33,7 +33,7 @@ import com.mag.slam3dvideo.orb3.OrbSlamProcessor
 import com.mag.slam3dvideo.orb3.Plane
 import com.mag.slam3dvideo.orb3.TrackingState
 import com.mag.slam3dvideo.scenes.KeypointsScene
-import com.mag.slam3dvideo.scenes.ObjectScene
+import com.mag.slam3dvideo.scenes.objectscene.ObjectScene
 import com.mag.slam3dvideo.scenes.OrbScene
 import com.mag.slam3dvideo.scenes.VideoFrameListener
 import com.mag.slam3dvideo.scenes.VideoScene
@@ -252,7 +252,10 @@ class MapViewActivity : AppCompatActivity() {
         animator.repeatCount = ValueAnimator.INFINITE
         animator.addUpdateListener(object : ValueAnimator.AnimatorUpdateListener {
             override fun onAnimationUpdate(a: ValueAnimator) {
-                keypointsScene.updateTransform()
+
+                allScenes().forEach {
+                    it.update()
+                }
 //                Matrix.setRotateM(transformMatrix, 0, -(a.animatedValue as Float), 0.0f, 0.0f, 1.0f)
 //                val tcm = engine.transformManager
 //                tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
@@ -275,7 +278,7 @@ class MapViewActivity : AppCompatActivity() {
 
         decoderSpeedControlCallback = SpeedControlCallback(object : VideoPlaybackCallback {
             override fun preRender(progress: Long) {
-                Log.d("speed", "$progress")
+//                Log.d("speed", "$progress")
             }
 
             override fun postRender() {
@@ -374,6 +377,9 @@ class MapViewActivity : AppCompatActivity() {
             }
             val keys = orbProcessor.getCurrentFrameKeyPoints()
             orbFrameInfoHolder.setKeypointsAtFrame(frameNumber, keys)
+            val mapPoints = orbProcessor.getCurrentMapPoints()
+            objectScene.setMapPoints(mapPoints)
+
         }
 
         keypointsScene.drawingRect = videoScene.drawingRect

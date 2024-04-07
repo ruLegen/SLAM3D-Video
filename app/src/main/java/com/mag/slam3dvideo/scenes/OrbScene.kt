@@ -11,4 +11,5 @@ interface OrbScene {
     fun render(renderer: Renderer)
     fun onResize(width: Int, height: Int)
     fun destroy(engine: Engine)
+    fun update(){}
 }

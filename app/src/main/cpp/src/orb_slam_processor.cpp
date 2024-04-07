@@ -185,5 +185,11 @@ Plane* OrbSlamProcessor::detectPlane(int iterations) {
   }
   return new Plane(vInlierMPs, Tcw);
 }
+std::vector<MapPoint *> OrbSlamProcessor::GetAllMapPoints() {
+  return mOrbSlamSystem.GetAtlas()->GetAllMapPoints();
+}
+std::vector<MapPoint *> OrbSlamProcessor::GetReferenceMapPoints() {
+  return mOrbSlamSystem.GetAtlas()->GetReferenceMapPoints();
+}
 
 } // namespace SLAMVideo

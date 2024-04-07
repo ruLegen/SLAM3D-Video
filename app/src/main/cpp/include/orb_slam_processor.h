@@ -18,6 +18,10 @@ public:
   vector<ORB_SLAM3::MapPoint *> getMapPoints();
 
   std::vector<cv::KeyPoint> getCurrentKeyPoints();
+  
+  std::vector<MapPoint*> GetAllMapPoints();
+  std::vector<MapPoint*> GetReferenceMapPoints();
+
   Plane* detectPlane(int iterations);
 
 private:

@@ -91,7 +91,7 @@ class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF ) : Orb
         tex = TextureSurface(bitmapSize.width.toInt(),bitmapSize.height.toInt(),Handler(Looper.myLooper()!!)) { buf, timestamp ->
             val newBuffer = Texture.PixelBufferDescriptor(buf, Texture.Format.RGBA, Texture.Type.UBYTE)
             videoTexture.setImage(engine, 0, newBuffer)
-            Log.d("tex","texture $timestamp")
+//            Log.d("tex","texture $timestamp")
             lastVideoFrameTimeUsec = timestamp
         }
         engine = e

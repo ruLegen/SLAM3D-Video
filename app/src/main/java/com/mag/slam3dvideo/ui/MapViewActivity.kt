@@ -298,7 +298,7 @@ class MapViewActivity : AppCompatActivity() {
                     val progress = timestamp / totalDuration.toFloat()
                     val frame = (progress * (videoRetriever?.frameCount ?: 0))
                     val roundFrame = frame.roundToInt()
-                    Log.d("scene","current $timestamp = $roundFrame")
+//                    Log.d("scene","current $timestamp = $roundFrame")
                     setupPreviewForFrame(roundFrame + mFrameOffset)
                     lastFrame = timestamp
                 }

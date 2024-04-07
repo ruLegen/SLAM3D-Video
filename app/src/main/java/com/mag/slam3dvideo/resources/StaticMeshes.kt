@@ -1,9 +1,12 @@
 package com.mag.slam3dvideo.resources
 
 import com.google.android.filament.VertexBuffer
-import com.mag.slam3dvideo.render.Mesh
-import com.mag.slam3dvideo.render.MeshOf
-import com.mag.slam3dvideo.render.VertexAttribute
+import com.mag.slam3dvideo.render.mesh.DynamicMesh
+import com.mag.slam3dvideo.render.mesh.DynamicMeshOf
+import com.mag.slam3dvideo.render.mesh.Mesh
+import com.mag.slam3dvideo.render.mesh.MeshOf
+import com.mag.slam3dvideo.render.mesh.VertexAttribute
+import com.mag.slam3dvideo.resources.StaticMeshes.asDynamic
 import java.nio.ByteBuffer
 
 object StaticMeshes {
@@ -40,9 +43,7 @@ object StaticMeshes {
     }
 
     fun getCubeMesh(): Mesh {
-
         val size = 0.05f;
-
         val l: Float = -size     // length
         val h: Float = size      // heigh
         val red = 0xffff0000.toInt()
@@ -88,8 +89,27 @@ object StaticMeshes {
 
         return MeshOf(1, meshVertexSize, meshAttributes, verticies, indeces, ::put)
     }
+    fun getCubeDynamicMesh(): DynamicMesh {
+        val mesh = getCubeMesh()
+        return (mesh as MeshOf<*>).asDynamic()
+    }
+
+    fun <T> MeshOf<T>.asDynamic():DynamicMesh{
+        return DynamicMeshOf(this.bufferCount,
+            this.vertexSizeInBytes,
+            this.attributes,
+            this.verticies.toMutableList(),
+            this.indicies.toMutableList(),
+            this.onByteBufferPut)
+
+    }
 
     fun getDynamicMesh(): Mesh {
-        return MeshOf(1, meshVertexSize, meshAttributes, arrayOf(MeshVertex(0f,0f,0f,0)), arrayOf(0), ::put)
+        return DynamicMeshOf(1,
+            meshVertexSize,
+            meshAttributes,
+            arrayOf(MeshVertex(0f,0f,0f,0)).toMutableList(),
+            arrayOf<Short>(0).toMutableList(),
+            ::put)
     }
 }

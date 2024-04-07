@@ -12,7 +12,7 @@ open class SceneObject {
 
     val transformComponent = TransformComponent()
     val entity:Int
-        get() {return  transformComponent.entity}
+        get() = transformComponent.entity
 
     private val componentContainer  = HashMap<UUID,ObjectComponent>()
     private val notInitializedComponents  = HashMap<UUID,ObjectComponent>()
@@ -37,6 +37,11 @@ open class SceneObject {
     fun update(context: SceneContext) {
         if(notInitializedComponents.size > 0){
             val initialized = ArrayList<UUID>(notInitializedComponents.size)
+            if(notInitializedComponents.containsKey(transformComponent.guid)){
+                transformComponent.start(context)
+                initialized.add(transformComponent.guid)
+                notInitializedComponents.remove(transformComponent.guid)
+            }
             notInitializedComponents.values.forEach {
                 if(it.isEnabled){
                     it.start(context)

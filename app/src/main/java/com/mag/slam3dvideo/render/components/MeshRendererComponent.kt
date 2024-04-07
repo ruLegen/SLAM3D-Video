@@ -1,13 +1,15 @@
 package com.mag.slam3dvideo.render.components
 
-import com.google.android.filament.EntityManager
 import com.google.android.filament.IndexBuffer
 import com.google.android.filament.MaterialInstance
 import com.google.android.filament.RenderableManager
 import com.google.android.filament.RenderableManager.PrimitiveType
 import com.google.android.filament.VertexBuffer
-import com.mag.slam3dvideo.render.Mesh
+import com.mag.slam3dvideo.render.mesh.DynamicMesh
+import com.mag.slam3dvideo.render.mesh.Mesh
 import com.mag.slam3dvideo.render.SceneContext
+import com.mag.slam3dvideo.render.mesh.DynamicMeshOf
+import com.mag.slam3dvideo.render.mesh.DynamicMeshState
 
 data class MeshBuffers(val vertexBuffer: VertexBuffer,val indexBuffer: IndexBuffer){
     fun destroy(context: SceneContext){
@@ -21,9 +23,10 @@ class MeshRendererComponent : ObjectComponent() {
     private var buffers: MeshBuffers? = null
     private var shouldUpdateMaterialInstance: Boolean = false
     private var shouldUpdateMesh: Boolean = false
+    private var isDynamic: Boolean = false
     var renderable: Int = -1
         private set
-    private var mesh:Mesh? = null
+    private var mesh: Mesh? = null
     var materialInstance:MaterialInstance? = null
         private set
     override fun start(context: SceneContext) {
@@ -37,10 +40,16 @@ class MeshRendererComponent : ObjectComponent() {
     }
 
     override fun update(context: SceneContext) {
-        val needUpdateMesh = shouldUpdateMesh
+        var needUpdateMesh = shouldUpdateMesh
         val needUpdateMatInst = shouldUpdateMaterialInstance
+        if(isDynamic && mesh != null){
+            val meshState = (mesh as DynamicMesh)?.checkState()
+            needUpdateMesh = needUpdateMesh.or(meshState != DynamicMeshState.Unchanged)
+        }
+
         if(!needUpdateMesh && !needUpdateMatInst)
             return
+
         shouldUpdateMesh =false
         shouldUpdateMaterialInstance = false
 
@@ -48,11 +57,40 @@ class MeshRendererComponent : ObjectComponent() {
         val entity = rcm.getInstance(renderable)
 
         if(needUpdateMesh && mesh != null){
-            updateMesh(context,mesh!!)
+            if(mesh is DynamicMesh)
+                updateDynamicMesh(context,mesh as DynamicMesh)
+            else
+                updateMesh(context,mesh!!)
         }
 
         if(needUpdateMatInst && materialInstance != null){
            rcm.setMaterialInstanceAt(entity,0,materialInstance!!)
+        }
+    }
+
+    private fun updateDynamicMesh(context: SceneContext, dynamicMesh: DynamicMesh) {
+        val state = dynamicMesh.checkState()
+        if(state == DynamicMeshState.Unchanged)
+            return
+        dynamicMesh.resetState()
+        if(buffers == null){
+            updateMesh(context,dynamicMesh)
+            return
+        }
+
+        when(state){
+            DynamicMeshState.CapacityChanged -> {
+                updateMesh(context,dynamicMesh)
+            }
+            DynamicMeshState.Changed -> {
+                buffers!!.vertexBuffer.setBufferAt(context.engine,0,dynamicMesh.getVertexDataBuffer())
+                buffers!!.indexBuffer.setBuffer(context.engine,dynamicMesh.getIndexDataBuffer())
+            }
+            DynamicMeshState.Advanced -> {
+                val visibleIndices = dynamicMesh.getVisibleIndices()
+                buffers!!.indexBuffer.setBuffer(context.engine,dynamicMesh.getIndexDataBuffer(),visibleIndices.offsetInBytes,visibleIndices.count)
+            }
+            else -> {}
         }
     }
 
@@ -85,7 +123,8 @@ class MeshRendererComponent : ObjectComponent() {
         return MeshBuffers(vertexBuffer,indexBuffer)
     }
 
-    fun setMesh(newMesh:Mesh){
+    fun setMesh(newMesh: Mesh){
+        isDynamic = newMesh is DynamicMesh
         mesh = newMesh
         shouldUpdateMesh = true
     }

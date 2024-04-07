@@ -150,7 +150,7 @@ class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF ) : Orb
             .culling(false)
             .build(engine, renderable)
         scene.addEntity(renderable)
-        scene.skybox = Skybox.Builder().color(1.0f, 1f, 1f, 1.0f).build(engine)
+        scene.skybox = Skybox.Builder().color(0.0f, 0f, 0f, 0.0f).build(engine)
         view.isPostProcessingEnabled = false
         view.camera = camera
         view.scene = scene

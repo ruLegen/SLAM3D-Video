@@ -42,8 +42,7 @@ object StaticMeshes {
         }
     }
 
-    fun getCubeMesh(): Mesh {
-        val size = 0.05f;
+    fun getCubeMesh(size:Float = 0.05f): Mesh {
         val l: Float = -size     // length
         val h: Float = size      // heigh
         val red = 0xffff0000.toInt()

@@ -24,6 +24,7 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
             return box.entity
         }
     private lateinit var box: SceneObject
+    private lateinit var cameraObj: SceneObject
     private lateinit var pointCloud: SceneObject
     private lateinit var dynamicCube: DynamicMeshOf<StaticMeshes.MeshVertex>
     init {
@@ -65,6 +66,16 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
             }
             addComponent(renderComponent)
         }
+        cameraObj = SceneObject().apply {
+            val renderComponent = MeshRendererComponent().apply {
+                val mesh = StaticMeshes.getCubeMesh(0.01f)
+                setMesh(mesh)
+                val material = StaticMaterials.getMeshMetal(this@ObjectSceneContext)
+                setMaterialInstance(material.createInstance())
+                primitiveType = RenderableManager.PrimitiveType.TRIANGLE_STRIP
+            }
+            addComponent(renderComponent)
+        }
 //        pointCloud = SceneObject().apply {
 //            val renderComponent = MeshRendererComponent().apply {
 //                val mesh = StaticMeshes.getDynamicMesh()
@@ -76,10 +87,13 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
 //            addComponent(renderComponent)
 //        }
         sceneObjectContainer.addObject(box)
+        sceneObjectContainer.addObject(cameraObj)
 //        sceneObjectContainer.addObject(pointCloud)
     }
     fun setBoxTransform(matrix:FloatArray){
         box.transformComponent.setTransform(this,matrix)
-        addVertex()
+    }
+    fun setCameraTransform(matrix:FloatArray){
+        cameraObj.transformComponent.setTransform(this,matrix)
     }
 }

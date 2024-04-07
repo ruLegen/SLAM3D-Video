@@ -1,13 +1,14 @@
 package com.mag.slam3dvideo.scenes.objectscene
 
+import android.annotation.SuppressLint
 import android.os.Handler
 import android.os.Looper
 import android.view.SurfaceView
 import com.google.android.filament.Engine
-import com.google.android.filament.IndexBuffer
 import com.google.android.filament.Renderer
-import com.google.android.filament.VertexBuffer
 import com.google.android.filament.Viewport
+import com.google.android.filament.utils.GestureDetector
+import com.google.android.filament.utils.Manipulator
 import com.mag.slam3dvideo.math.MatShared
 import com.mag.slam3dvideo.math.toGlMatrix
 import com.mag.slam3dvideo.orb3.MapPoint
@@ -21,14 +22,34 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
 
     private var plane: Plane? = null
     private var cameraCallibration = CameraCallibration(0.0,0.0,0.0,0.0,0.0,0.0)
-
-    private lateinit var indexBuffer: IndexBuffer
-    private lateinit var vertexBuffer: VertexBuffer
-    private lateinit var sceneContext: ObjectSceneContext
     private val handler:Handler = Handler(Looper.getMainLooper())
+    private lateinit var sceneContext: ObjectSceneContext
+    private lateinit var cameraManipulator:Manipulator
+    private lateinit var gestureDetector: GestureDetector
+
+    private val eyePos = DoubleArray(3)
+    private val target = DoubleArray(3)
+    private val upward = DoubleArray(3)
+    @SuppressLint("ClickableViewAccessibility")
     override fun init(e: Engine) {
-        sceneContext = ObjectSceneContext(e,)
+        sceneContext = ObjectSceneContext(e)
         sceneContext.initScene()
+        cameraManipulator = Manipulator.Builder()
+            .orbitHomePosition(0f,1f,0f)
+            .targetPosition(0f,0f,0.00f)
+            .orbitSpeed(0.01f,0.01f)
+            .build(Manipulator.Mode.ORBIT)
+        //cameraManipulator.set
+        gestureDetector = GestureDetector(surfaceView, cameraManipulator)
+        surfaceView.setOnTouchListener { _, event ->
+            gestureDetector.onTouchEvent(event);
+            cameraManipulator.getLookAt(eyePos, target, upward)
+            sceneContext.camera.lookAt(
+                eyePos[0], eyePos[1], eyePos[2],
+                target[0], target[1], target[2],
+                upward[0], upward[1], upward[2])
+            return@setOnTouchListener true
+        }
     }
     override fun activate() {
 
@@ -44,6 +65,8 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
         if(plane == null)
             return
         renderer.render(sceneContext.view)
+
+
     }
     private fun createMesh() {
 
@@ -72,6 +95,10 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
         val glMatrix = plane!!.getGLTpw()
         handler.post{
             sceneContext.setBoxTransform(glMatrix)
+            val id = FloatArray(16)
+            android.opengl.Matrix.setIdentityM(id,0)
+//            android.opengl.Matrix.translateM(id,0,0f,0f,1f)
+            sceneContext.setCameraTransform(id)
         }
     }
     fun setMapPoints(mapPoints: List<MapPoint>) {
@@ -91,6 +118,7 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
             near,far)
         sceneContext.camera.setCustomProjection(doubleArray, 0.001, 1000.0)
         sceneContext.view.viewport = Viewport(0, 0, width, height)
+        cameraManipulator.setViewport(width,height)
     }
 
     override fun destroy(engine: Engine) {

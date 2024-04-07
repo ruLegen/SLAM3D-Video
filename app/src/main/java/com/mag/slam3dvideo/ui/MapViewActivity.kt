@@ -27,6 +27,7 @@ import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.FilamentHelper
 import com.google.android.filament.android.UiHelper
 import com.google.android.filament.filamat.MaterialBuilder
+import com.google.android.filament.utils.Utils
 import com.mag.slam3dvideo.R
 import com.mag.slam3dvideo.databinding.ActivityMapViewBinding
 import com.mag.slam3dvideo.orb3.OrbSlamProcessor
@@ -41,6 +42,7 @@ import com.mag.slam3dvideo.ui.components.MediaPlayerControlCallback
 import com.mag.slam3dvideo.ui.components.SurfaceMediaPlayerControl
 import com.mag.slam3dvideo.utils.AssetUtils
 import com.mag.slam3dvideo.utils.BufferQueue
+import com.mag.slam3dvideo.utils.ObjLoader
 import com.mag.slam3dvideo.utils.OrbFrameInfoHolder
 import com.mag.slam3dvideo.utils.TaskRunner
 import com.mag.slam3dvideo.utils.video.SpeedControlCallback
@@ -90,6 +92,7 @@ class MapViewActivity : AppCompatActivity() {
     companion object {
         init {
             Filament.init()
+            Utils.init()
             OpenCVLoader.initDebug()
             MaterialBuilder.init()
         }
@@ -139,6 +142,7 @@ class MapViewActivity : AppCompatActivity() {
         val path = intent.getStringExtra("path")
         if (path != null)
             file = path
+//        val objLoader = ObjLoader(this,"Models/camera.obj")
 
         binding = ActivityMapViewBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -317,7 +321,7 @@ class MapViewActivity : AppCompatActivity() {
         frameProcessorTaskRunner = TaskRunner().apply {
             executeAsync({ processFrame(0) })
         }
-        videoDecoder.start()
+//        videoDecoder.start()
     }
 
     private fun decodeFrame(frame: Int) {

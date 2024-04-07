@@ -70,6 +70,8 @@ dependencies {
     implementation files('libs/filament-android-debug.aar')
     implementation files('libs/filamat-v1.50.0-android.aar')
     implementation files('libs/filament-utils-android-debug.aar')
+    implementation files('libs/gltfio-android-debug.aar')
+
     implementation 'jp.co.cyberagent.android:gpuimage:2.1.0'
 
     implementation project(':sdk')

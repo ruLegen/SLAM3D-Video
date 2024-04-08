@@ -52,7 +52,7 @@ class TextureSurface(val width: Int, val height: Int, val handler: Handler,val o
 
             var timestamp =  surfaceTexture?.timestamp?:0L
             timestamp /= 1000    // to microseconds
-            Log.d("TexSurface","onFrameAvailable $timestamp")
+//            Log.d("TexSurface","onFrameAvailable $timestamp")
             mTextureSurface.getTransformMatrix(matrix)
             GLES20.glViewport(0, 0, width, height);
             mFullFrameBlit.drawFrame(mTextureId, matrix)

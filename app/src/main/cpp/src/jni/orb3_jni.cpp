@@ -5,6 +5,15 @@
 #include <algorithm>
 #include <opencv2/core/eigen.hpp>
 
+inline void unpackMapPoint(ORB_SLAM3::MapPoint* pt,bool isReferenced, vector<float>& outputContainer){
+  auto worldPos = pt->GetWorldPos();
+  auto desc = pt->GetDescriptor();
+  outputContainer.push_back(worldPos.x());
+  outputContainer.push_back(worldPos.y());
+  outputContainer.push_back(worldPos.z());
+  outputContainer.push_back(isReferenced);
+}
+
 extern "C"
 JNIEXPORT jlong JNICALL
 Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nInitOrb(JNIEnv *env, jobject thiz, jstring vocab_file_name,
@@ -74,6 +83,44 @@ Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nGetCurrentFrameKeyPoints(JNIEnv 
     }
     jfloatArray floatArray = env->NewFloatArray(unpackedKeyPoints.size());
     env->SetFloatArrayRegion(floatArray,0,unpackedKeyPoints.size(),unpackedKeyPoints.data());
+    return floatArray;
+}
+
+extern "C" JNIEXPORT jfloatArray
+Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nGetCurrentMapPoints(JNIEnv *env, jobject thiz, jlong ptr) {
+    static int numberOfMapPointMembers =4; //keep in sync with OrbSlamProcessor.kt
+    auto *processor = reinterpret_cast<SLAMVideo::OrbSlamProcessor*>(ptr);
+    if (processor == nullptr)
+      return 0;
+
+    const vector<ORB_SLAM3::MapPoint*> &allMapPoints = processor->GetAllMapPoints();
+    const vector<ORB_SLAM3::MapPoint*> &referenceMapPoints = processor->GetReferenceMapPoints();
+    set<ORB_SLAM3::MapPoint*> setRefMapPoints(referenceMapPoints.begin(),referenceMapPoints.end());
+
+    if(allMapPoints.empty())
+      return 0;
+
+    std::vector<float> unpackedMapPoints;
+    int reservePointCount = std::max(allMapPoints.size(),setRefMapPoints.size());
+    unpackedMapPoints.reserve(reservePointCount *numberOfMapPointMembers);
+
+    for(size_t i=0, iend=allMapPoints.size(); i<iend;i++)
+    {
+      if(allMapPoints[i]->isBad() || setRefMapPoints.count(referenceMapPoints[i]))
+        continue;
+      auto pt = allMapPoints[i];
+      unpackMapPoint(pt,false,unpackedMapPoints);
+    }
+    for(set<ORB_SLAM3::MapPoint*>::iterator sit= setRefMapPoints.begin(), send= setRefMapPoints.end(); sit!=send; sit++)
+    {
+      if((*sit)->isBad())
+        continue;
+      unpackMapPoint(*sit,true,unpackedMapPoints);
+    }
+
+    jfloatArray floatArray = env->NewFloatArray(unpackedMapPoints.size());
+    env->SetFloatArrayRegion(floatArray,0, unpackedMapPoints.size(),
+                             unpackedMapPoints.data());
     return floatArray;
 }
 

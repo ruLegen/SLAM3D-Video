@@ -178,6 +178,7 @@ public:
     std::vector<cv::KeyPoint> GetTrackedKeyPointsUn();
 
     Tracking* GetTracking();
+    Atlas* GetAtlas();
 
     // For debugging
     double GetTimeFromIMUInit();

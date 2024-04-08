@@ -27,13 +27,14 @@ import com.google.android.filament.android.DisplayHelper
 import com.google.android.filament.android.FilamentHelper
 import com.google.android.filament.android.UiHelper
 import com.google.android.filament.filamat.MaterialBuilder
+import com.google.android.filament.utils.Utils
 import com.mag.slam3dvideo.R
 import com.mag.slam3dvideo.databinding.ActivityMapViewBinding
 import com.mag.slam3dvideo.orb3.OrbSlamProcessor
 import com.mag.slam3dvideo.orb3.Plane
 import com.mag.slam3dvideo.orb3.TrackingState
 import com.mag.slam3dvideo.scenes.KeypointsScene
-import com.mag.slam3dvideo.scenes.ObjectScene
+import com.mag.slam3dvideo.scenes.objectscene.ObjectScene
 import com.mag.slam3dvideo.scenes.OrbScene
 import com.mag.slam3dvideo.scenes.VideoFrameListener
 import com.mag.slam3dvideo.scenes.VideoScene
@@ -41,6 +42,7 @@ import com.mag.slam3dvideo.ui.components.MediaPlayerControlCallback
 import com.mag.slam3dvideo.ui.components.SurfaceMediaPlayerControl
 import com.mag.slam3dvideo.utils.AssetUtils
 import com.mag.slam3dvideo.utils.BufferQueue
+import com.mag.slam3dvideo.utils.ObjLoader
 import com.mag.slam3dvideo.utils.OrbFrameInfoHolder
 import com.mag.slam3dvideo.utils.TaskRunner
 import com.mag.slam3dvideo.utils.video.SpeedControlCallback
@@ -90,6 +92,7 @@ class MapViewActivity : AppCompatActivity() {
     companion object {
         init {
             Filament.init()
+            Utils.init()
             OpenCVLoader.initDebug()
             MaterialBuilder.init()
         }
@@ -139,6 +142,7 @@ class MapViewActivity : AppCompatActivity() {
         val path = intent.getStringExtra("path")
         if (path != null)
             file = path
+//        val objLoader = ObjLoader(this,"Models/camera.obj")
 
         binding = ActivityMapViewBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -252,7 +256,10 @@ class MapViewActivity : AppCompatActivity() {
         animator.repeatCount = ValueAnimator.INFINITE
         animator.addUpdateListener(object : ValueAnimator.AnimatorUpdateListener {
             override fun onAnimationUpdate(a: ValueAnimator) {
-                keypointsScene.updateTransform()
+
+                allScenes().forEach {
+                    it.update()
+                }
 //                Matrix.setRotateM(transformMatrix, 0, -(a.animatedValue as Float), 0.0f, 0.0f, 1.0f)
 //                val tcm = engine.transformManager
 //                tcm.setTransform(tcm.getInstance(renderable), transformMatrix)
@@ -275,7 +282,7 @@ class MapViewActivity : AppCompatActivity() {
 
         decoderSpeedControlCallback = SpeedControlCallback(object : VideoPlaybackCallback {
             override fun preRender(progress: Long) {
-                Log.d("speed", "$progress")
+//                Log.d("speed", "$progress")
             }
 
             override fun postRender() {
@@ -295,7 +302,7 @@ class MapViewActivity : AppCompatActivity() {
                     val progress = timestamp / totalDuration.toFloat()
                     val frame = (progress * (videoRetriever?.frameCount ?: 0))
                     val roundFrame = frame.roundToInt()
-                    Log.d("scene","current $timestamp = $roundFrame")
+//                    Log.d("scene","current $timestamp = $roundFrame")
                     setupPreviewForFrame(roundFrame + mFrameOffset)
                     lastFrame = timestamp
                 }
@@ -314,7 +321,7 @@ class MapViewActivity : AppCompatActivity() {
         frameProcessorTaskRunner = TaskRunner().apply {
             executeAsync({ processFrame(0) })
         }
-        videoDecoder.start()
+//        videoDecoder.start()
     }
 
     private fun decodeFrame(frame: Int) {
@@ -374,6 +381,9 @@ class MapViewActivity : AppCompatActivity() {
             }
             val keys = orbProcessor.getCurrentFrameKeyPoints()
             orbFrameInfoHolder.setKeypointsAtFrame(frameNumber, keys)
+            val mapPoints = orbProcessor.getCurrentMapPoints()
+            objectScene.setMapPoints(mapPoints)
+
         }
 
         keypointsScene.drawingRect = videoScene.drawingRect

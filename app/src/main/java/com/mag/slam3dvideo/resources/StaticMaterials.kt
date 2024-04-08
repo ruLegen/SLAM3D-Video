@@ -22,14 +22,20 @@ object StaticMaterials {
             .platform(MaterialBuilder.Platform.MOBILE)
             .shading(MaterialBuilder.Shading.UNLIT)
             .culling(MaterialBuilder.CullingMode.NONE)
+            .variable(MaterialBuilder.Variable.CUSTOM0,"clr")
             .material(
                 """
                void material(inout MaterialInputs material) {
                    prepareMaterial(material);
-                   material.baseColor =  getColor();
+                   material.baseColor = getColor();
                }
             """
             )
+            .materialVertex("""
+                 void materialVertex(inout MaterialVertexInputs material) {
+                    material.clr = vec4(getPosition().xyz,1.0);
+                }
+            """)
             .build()
         val materialBuffer =  mat.buffer
         val material = Material.Builder().payload(materialBuffer, materialBuffer.remaining()).build(context.engine)

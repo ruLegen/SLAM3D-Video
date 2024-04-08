@@ -2,15 +2,14 @@ package com.mag.slam3dvideo.scenes.objectscene
 
 import android.graphics.Color
 import com.google.android.filament.Camera
-import com.google.android.filament.Colors
 import com.google.android.filament.Engine
 import com.google.android.filament.RenderableManager
 import com.google.android.filament.View
 import com.mag.slam3dvideo.render.SceneContext
 import com.mag.slam3dvideo.render.SceneObject
 import com.mag.slam3dvideo.render.components.MeshRendererComponent
-import com.mag.slam3dvideo.render.mesh.DynamicMesh
 import com.mag.slam3dvideo.render.mesh.DynamicMeshOf
+import com.mag.slam3dvideo.resources.AssetMeshes
 import com.mag.slam3dvideo.resources.StaticMaterials
 import com.mag.slam3dvideo.resources.StaticMeshes
 
@@ -27,6 +26,7 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
     private lateinit var cameraObj: SceneObject
     private lateinit var pointCloud: SceneObject
     private lateinit var dynamicCube: DynamicMeshOf<StaticMeshes.MeshVertex>
+    private lateinit var pointCloudMesh: DynamicMeshOf<StaticMeshes.MeshVertex>
     init {
         view = engine.createView()
         camera = engine.createCamera(engine.entityManager.create())
@@ -68,32 +68,60 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
         }
         cameraObj = SceneObject().apply {
             val renderComponent = MeshRendererComponent().apply {
-                val mesh = StaticMeshes.getCubeMesh(0.01f)
+                val mesh = AssetMeshes.getCamera()
                 setMesh(mesh)
                 val material = StaticMaterials.getMeshMetal(this@ObjectSceneContext)
                 setMaterialInstance(material.createInstance())
-                primitiveType = RenderableManager.PrimitiveType.TRIANGLE_STRIP
+                primitiveType = RenderableManager.PrimitiveType.TRIANGLES
             }
             addComponent(renderComponent)
         }
-//        pointCloud = SceneObject().apply {
-//            val renderComponent = MeshRendererComponent().apply {
-//                val mesh = StaticMeshes.getDynamicMesh()
-//                setMesh(mesh)
-//                val material = StaticMaterials.getMeshMetal(this@ObjectSceneContext)
-//                setMaterialInstance(material.createInstance())
-//                primitiveType = RenderableManager.PrimitiveType.POINTS
-//            }
-//            addComponent(renderComponent)
-//        }
+        pointCloud = SceneObject().apply {
+            val renderComponent = MeshRendererComponent().apply {
+                pointCloudMesh = StaticMeshes.getDynamicMesh(1024) as DynamicMeshOf<StaticMeshes.MeshVertex>
+                setMesh(pointCloudMesh)
+                val material = StaticMaterials.getMeshMetal(this@ObjectSceneContext)
+                setMaterialInstance(material.createInstance())
+                primitiveType = RenderableManager.PrimitiveType.POINTS
+            }
+            addComponent(renderComponent)
+        }
+        val gizmo = SceneObject().apply {
+            val renderComponent = MeshRendererComponent().apply {
+                val gizmo = StaticMeshes.getGizmo(1f)
+                setMesh(gizmo)
+                val material = StaticMaterials.getMeshMetal(this@ObjectSceneContext)
+                setMaterialInstance(material.createInstance())
+                primitiveType = RenderableManager.PrimitiveType.LINES
+            }
+            addComponent(renderComponent)
+        }
         sceneObjectContainer.addObject(box)
-        sceneObjectContainer.addObject(cameraObj)
-//        sceneObjectContainer.addObject(pointCloud)
+//        sceneObjectContainer.addObject(cameraObj)
+        sceneObjectContainer.addObject(gizmo)
+        sceneObjectContainer.addObject(pointCloud)
+
+
     }
     fun setBoxTransform(matrix:FloatArray){
         box.transformComponent.setTransform(this,matrix)
+        val tr = FloatArray(16)
+        android.opengl.Matrix.setIdentityM(tr,0)
+        android.opengl.Matrix.rotateM(tr,0,90f,1f,0f,0f)
+        pointCloud.transformComponent.setTransform(this,tr)
+
+        val lt = pointCloud.transformComponent.getTransform(this)
+        val wt = pointCloud.transformComponent.getWorldTransform(this)
     }
     fun setCameraTransform(matrix:FloatArray){
         cameraObj.transformComponent.setTransform(this,matrix)
+    }
+
+    fun updatePointCloud(vertexes: List<StaticMeshes.MeshVertex>) {
+        val indices = ShortArray(vertexes.size)
+        for (i in 0 until  vertexes.size)
+            indices[i] = i.toShort()
+        pointCloudMesh.updateMesh(vertexes,indices.toList())
+
     }
 }

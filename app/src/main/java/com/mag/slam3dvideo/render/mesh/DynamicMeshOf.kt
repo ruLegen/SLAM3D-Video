@@ -44,7 +44,7 @@ class DynamicMeshOf<T>(bufferCount: Int,
         return VisibleIndices(0,currentIndicesSize)
     }
 
-    fun updateMesh(newVertices:Array<T>, newIndices:Array<Short>){
+    fun updateMesh(newVertices:List<T>, newIndices:List<Short>){
         val newVertexSize = newVertices.size
         val newIndexSize = newIndices.size
         val shouldResizeVertices = newVertexSize > vertexCount

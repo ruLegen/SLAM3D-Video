@@ -6,7 +6,6 @@ import com.mag.slam3dvideo.render.mesh.DynamicMeshOf
 import com.mag.slam3dvideo.render.mesh.Mesh
 import com.mag.slam3dvideo.render.mesh.MeshOf
 import com.mag.slam3dvideo.render.mesh.VertexAttribute
-import com.mag.slam3dvideo.resources.StaticMeshes.asDynamic
 import java.nio.ByteBuffer
 
 object StaticMeshes {
@@ -103,12 +102,38 @@ object StaticMeshes {
 
     }
 
-    fun getDynamicMesh(): Mesh {
+    fun getDynamicMesh(capacity:Int): DynamicMesh {
+        val vertices = ArrayList<MeshVertex>(capacity).apply { add(MeshVertex(0f,0f,0f,0)) }
+        val indices = ArrayList<Short>(capacity).apply { add(0) }
         return DynamicMeshOf(1,
             meshVertexSize,
             meshAttributes,
-            arrayOf(MeshVertex(0f,0f,0f,0)).toMutableList(),
-            arrayOf<Short>(0).toMutableList(),
+            vertices,
+            indices,
             ::put)
+    }
+
+    fun getGizmo(size: Float): Mesh {
+        val l: Float = size             // length
+        //AABBGGRR
+        val red = 0xff0000ff.toInt()
+        val green = 0xff00ff00.toInt()
+        val blue = 0xffff0000.toInt()
+
+        val verticies = arrayOf(
+            MeshVertex(0f, 0f, 0f, red),
+            MeshVertex(l, 0f, 0f, red),
+
+            MeshVertex(0f, 0f, 0f, green),
+            MeshVertex(0f, l, 0f, green),
+
+            MeshVertex(0f, 0f, 0f, blue),
+            MeshVertex(0f, 0f, l, blue),
+        )
+
+        val indeces = arrayOf<Short>(
+            0, 1, 2, 3, 4,5
+        )
+        return MeshOf(1, meshVertexSize, meshAttributes, verticies, indeces, ::put)
     }
 }

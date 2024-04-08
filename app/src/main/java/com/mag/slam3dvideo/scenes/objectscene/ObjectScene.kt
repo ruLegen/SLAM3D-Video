@@ -1,18 +1,22 @@
 package com.mag.slam3dvideo.scenes.objectscene
 
 import android.annotation.SuppressLint
+import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
 import android.view.SurfaceView
+import com.google.android.filament.Camera
 import com.google.android.filament.Engine
 import com.google.android.filament.Renderer
 import com.google.android.filament.Viewport
 import com.google.android.filament.utils.GestureDetector
 import com.google.android.filament.utils.Manipulator
+import com.google.android.filament.utils.Mat4
 import com.mag.slam3dvideo.math.MatShared
 import com.mag.slam3dvideo.math.toGlMatrix
 import com.mag.slam3dvideo.orb3.MapPoint
 import com.mag.slam3dvideo.orb3.Plane
+import com.mag.slam3dvideo.resources.StaticMeshes
 import com.mag.slam3dvideo.scenes.OrbScene
 import com.mag.slam3dvideo.utils.CameraUtils
 
@@ -35,8 +39,8 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
         sceneContext = ObjectSceneContext(e)
         sceneContext.initScene()
         cameraManipulator = Manipulator.Builder()
-            .orbitHomePosition(0f,1f,0f)
-            .targetPosition(0f,0f,0.00f)
+            .orbitHomePosition(0f,0f,1f)
+            .targetPosition(0f,0f,0f)
             .orbitSpeed(0.01f,0.01f)
             .build(Manipulator.Mode.ORBIT)
         //cameraManipulator.set
@@ -44,6 +48,9 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
         surfaceView.setOnTouchListener { _, event ->
             gestureDetector.onTouchEvent(event);
             cameraManipulator.getLookAt(eyePos, target, upward)
+            val tr = FloatArray(16)
+            sceneContext.camera.getModelMatrix(tr)
+            sceneContext.camera.setModelMatrix(tr)
             sceneContext.camera.lookAt(
                 eyePos[0], eyePos[1], eyePos[2],
                 target[0], target[1], target[2],
@@ -65,8 +72,6 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
         if(plane == null)
             return
         renderer.render(sceneContext.view)
-
-
     }
     private fun createMesh() {
 
@@ -103,7 +108,8 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
     }
     fun setMapPoints(mapPoints: List<MapPoint>) {
         mMapPoints = mapPoints
-
+        val vertexes = mMapPoints.map { StaticMeshes.MeshVertex(it.x,it.y,it.z,if(it.isReferenced) Color.GREEN else Color.RED) }
+        sceneContext.updatePointCloud(vertexes)
     }
 
     override fun onResize(width: Int, height: Int) {
@@ -116,7 +122,9 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
             cameraCallibration.cx,
             cameraCallibration.cy,
             near,far)
-        sceneContext.camera.setCustomProjection(doubleArray, 0.001, 1000.0)
+//        sceneContext.camera.setCustomProjection(doubleArray, 0.001, 1000.0)
+        val aspect = width.toDouble() / height.toDouble()
+        sceneContext.camera.setProjection(45.0, aspect, 0.1, 20.0, Camera.Fov.VERTICAL)
         sceneContext.view.viewport = Viewport(0, 0, width, height)
         cameraManipulator.setViewport(width,height)
     }

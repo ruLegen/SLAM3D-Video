@@ -1,22 +1,21 @@
 package com.mag.slam3dvideo.ui
 
 import android.annotation.SuppressLint
-import android.content.Context
 import android.os.Bundle
 import android.util.Log
-import android.view.GestureDetector
-import android.view.MotionEvent
 import android.view.View
-import androidx.activity.enableEdgeToEdge
+import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.view.ViewCompat
-import androidx.core.view.WindowInsetsCompat
 import com.mag.slam3dvideo.R
+import de.javagl.obj.Obj
+import de.javagl.obj.ObjData
+import de.javagl.obj.ObjReader
 import it.sephiroth.android.library.uigestures.UIGestureRecognizer
 import it.sephiroth.android.library.uigestures.UIGestureRecognizerDelegate
 import it.sephiroth.android.library.uigestures.UIPanGestureRecognizer
 import it.sephiroth.android.library.uigestures.UIRotateGestureRecognizer
 import it.sephiroth.android.library.uigestures.setGestureDelegate
+import java.io.InputStreamReader
 
 
 class DebugActivity : AppCompatActivity() {
@@ -25,6 +24,15 @@ class DebugActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_debug)
         val v= findViewById<View>(R.id.view)
+        val b = findViewById<Button>(R.id.btn)
+        b.setOnClickListener {
+            val input = InputStreamReader(assets.open("Models/camera.obj"))
+            val obj: Obj = ObjReader.read(input)
+            val vert = ObjData.getVertices(obj);
+            val faceVertexIndices = ObjData.getFaceVertexIndicesArray(obj);
+            val faceTexCoordIndices = ObjData.getFaceTexCoordIndicesArray(obj);
+            val faceNormalIndices = ObjData.getFaceNormalIndicesArray(obj);
+        }
         val delegate= UIGestureRecognizerDelegate();
 
         val recognizer2= UIRotateGestureRecognizer(this)

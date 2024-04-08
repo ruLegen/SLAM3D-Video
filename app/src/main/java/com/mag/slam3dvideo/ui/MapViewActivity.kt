@@ -42,7 +42,6 @@ import com.mag.slam3dvideo.ui.components.MediaPlayerControlCallback
 import com.mag.slam3dvideo.ui.components.SurfaceMediaPlayerControl
 import com.mag.slam3dvideo.utils.AssetUtils
 import com.mag.slam3dvideo.utils.BufferQueue
-import com.mag.slam3dvideo.utils.ObjLoader
 import com.mag.slam3dvideo.utils.OrbFrameInfoHolder
 import com.mag.slam3dvideo.utils.TaskRunner
 import com.mag.slam3dvideo.utils.video.SpeedControlCallback

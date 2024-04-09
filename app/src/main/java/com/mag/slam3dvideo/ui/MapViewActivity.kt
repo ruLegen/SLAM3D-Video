@@ -382,6 +382,7 @@ class MapViewActivity : AppCompatActivity() {
             orbFrameInfoHolder.setKeypointsAtFrame(frameNumber, keys)
             val mapPoints = orbProcessor.getCurrentMapPoints()
             objectScene.setMapPoints(mapPoints)
+            objectScene.setCameraObjectTransform(tcw)
 
         }
 

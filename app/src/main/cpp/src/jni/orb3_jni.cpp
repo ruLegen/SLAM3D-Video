@@ -7,7 +7,6 @@
 
 inline void unpackMapPoint(ORB_SLAM3::MapPoint* pt,bool isReferenced, vector<float>& outputContainer){
   auto worldPos = pt->GetWorldPos();
-  auto desc = pt->GetDescriptor();
   outputContainer.push_back(worldPos.x());
   outputContainer.push_back(worldPos.y());
   outputContainer.push_back(worldPos.z());

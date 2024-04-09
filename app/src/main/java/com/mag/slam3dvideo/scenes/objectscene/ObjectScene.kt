@@ -11,7 +11,6 @@ import com.google.android.filament.Renderer
 import com.google.android.filament.Viewport
 import com.google.android.filament.utils.GestureDetector
 import com.google.android.filament.utils.Manipulator
-import com.google.android.filament.utils.Mat4
 import com.mag.slam3dvideo.math.MatShared
 import com.mag.slam3dvideo.math.toGlMatrix
 import com.mag.slam3dvideo.orb3.MapPoint
@@ -86,9 +85,9 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
             return
         handler.post{
             //https://github.com/google/filament/blob/ba9cb2fe43f45c407e31fe197aa7e72d0e2810e5/filament/src/details/Camera.cpp#L201
-            var res= FloatArray(16)
-            android.opengl.Matrix.invertM(res,0,tcw.toGlMatrix(),0)
-            sceneContext.camera.setModelMatrix(res)
+            var twc = FloatArray(16)
+            android.opengl.Matrix.invertM(twc,0,tcw.toGlMatrix(),0)
+            sceneContext.camera.setModelMatrix(twc)
         }
     }
 
@@ -130,6 +129,13 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
     }
 
     override fun destroy(engine: Engine) {
+    }
+
+    fun setCameraObjectTransform(tcw: MatShared?) {
+        val glMatrix = tcw?.toGlMatrix() ?: return
+        var res= FloatArray(16)
+        android.opengl.Matrix.invertM(res,0,glMatrix,0)
+        sceneContext.setCameraTransform(res)
     }
 
 }

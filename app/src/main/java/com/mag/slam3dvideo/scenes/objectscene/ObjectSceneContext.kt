@@ -68,7 +68,7 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
         }
         cameraObj = SceneObject().apply {
             val renderComponent = MeshRendererComponent().apply {
-                val mesh = AssetMeshes.getCamera()
+                val mesh = StaticMeshes.getCubeMesh(0.01f)
                 setMesh(mesh)
                 val material = StaticMaterials.getMeshMetal(this@ObjectSceneContext)
                 setMaterialInstance(material.createInstance())
@@ -97,7 +97,7 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
             addComponent(renderComponent)
         }
         sceneObjectContainer.addObject(box)
-//        sceneObjectContainer.addObject(cameraObj)
+        sceneObjectContainer.addObject(cameraObj)
         sceneObjectContainer.addObject(gizmo)
         sceneObjectContainer.addObject(pointCloud)
 

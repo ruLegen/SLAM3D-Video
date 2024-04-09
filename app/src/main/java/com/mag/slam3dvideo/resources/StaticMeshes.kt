@@ -35,8 +35,8 @@ object StaticMeshes {
     fun put(buffer: ByteBuffer, v: MeshVertex): Unit {
         buffer.apply {
             putFloat(v.x)
-            putFloat(v.z)
             putFloat(v.y)
+            putFloat(v.z)
             putInt(v.c)
         }
     }
@@ -118,6 +118,7 @@ object StaticMeshes {
         //AABBGGRR
         val red = 0xff0000ff.toInt()
         val green = 0xff00ff00.toInt()
+        val yellow = 0xff00ffff.toInt()
         val blue = 0xffff0000.toInt()
 
         val verticies = arrayOf(
@@ -127,12 +128,14 @@ object StaticMeshes {
             MeshVertex(0f, 0f, 0f, green),
             MeshVertex(0f, l, 0f, green),
 
+
             MeshVertex(0f, 0f, 0f, blue),
             MeshVertex(0f, 0f, l, blue),
+
         )
 
         val indeces = arrayOf<Short>(
-            0, 1, 2, 3, 4,5
+            0, 1, 2, 3, 4,5,
         )
         return MeshOf(1, meshVertexSize, meshAttributes, verticies, indeces, ::put)
     }

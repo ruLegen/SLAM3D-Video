@@ -370,6 +370,8 @@ class MapViewActivity : AppCompatActivity() {
         orbFrameInfoHolder.setCameraPosAtFrame(frameNumber, tcw)
         val state = orbProcessor.getTrackingState()
         if (state == TrackingState.OK) {
+            if(i == 0)
+                objectScene.setCloudPointOrigin(tcw);
             if (i == 15 || shouldRegenPlane) {
                 shouldRegenPlane = false
                 plane = orbProcessor.detectPlane()

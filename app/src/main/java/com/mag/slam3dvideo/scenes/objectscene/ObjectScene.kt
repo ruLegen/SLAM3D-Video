@@ -53,7 +53,7 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
             sceneContext.camera.lookAt(
                 eyePos[0], eyePos[1], eyePos[2],
                 target[0], target[1], target[2],
-                upward[0], upward[1], upward[2])
+                upward[0], -1.0, upward[2])
             return@setOnTouchListener true
         }
     }
@@ -126,7 +126,7 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
         val iv = FloatArray(16)
         android.opengl.Matrix.invertM(iv,0,glMatrix,0)
         handler.post{
-            sceneContext.setBoxTransform(iv)
+            sceneContext.setBoxTransform(glMatrix)
         }
     }
 

@@ -4,7 +4,9 @@ import android.annotation.SuppressLint
 import android.graphics.Color
 import android.os.Handler
 import android.os.Looper
+import android.view.MotionEvent
 import android.view.SurfaceView
+import android.view.View
 import com.google.android.filament.Camera
 import com.google.android.filament.Engine
 import com.google.android.filament.Renderer
@@ -19,52 +21,87 @@ import com.mag.slam3dvideo.resources.StaticMeshes
 import com.mag.slam3dvideo.scenes.OrbScene
 import com.mag.slam3dvideo.utils.CameraUtils
 
-data class CameraCallibration(val x:Double,val h:Double,val fx:Double,val fy:Double,val cx: Double,val cy: Double)
+data class CameraCallibration(
+    val x: Double,
+    val h: Double,
+    val fx: Double,
+    val fy: Double,
+    val cx: Double,
+    val cy: Double
+)
+
 class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
+    private var lastWidth: Int = 1
+    private var lastHeight: Int = 1
+
+    private var isEditMode: Boolean = true
     private var mMapPoints: List<MapPoint> = ArrayList()
 
     private var plane: Plane? = null
-    private var cameraCallibration = CameraCallibration(0.0,0.0,0.0,0.0,0.0,0.0)
-    private val handler:Handler = Handler(Looper.getMainLooper())
+    private var cameraCallibration = CameraCallibration(0.0, 0.0, 0.0, 0.0, 0.0, 0.0)
+    private val handler: Handler = Handler(Looper.getMainLooper())
     private lateinit var sceneContext: ObjectSceneContext
-    private lateinit var cameraManipulator:Manipulator
+    private lateinit var cameraManipulator: Manipulator
     private lateinit var gestureDetector: GestureDetector
 
     private val eyePos = DoubleArray(3)
     private val target = DoubleArray(3)
     private val upward = DoubleArray(3)
+
+    private val surfaceGestureHandler = object : View.OnTouchListener {
+        @SuppressLint("ClickableViewAccessibility")
+        override fun onTouch(v: View?, event: MotionEvent?): Boolean {
+            gestureDetector.onTouchEvent(event!!);
+            cameraManipulator.getLookAt(eyePos, target, upward)
+            sceneContext.camera.lookAt(
+                eyePos[0], eyePos[1], eyePos[2],
+                target[0], target[1], target[2],
+                upward[0], -1.0, upward[2]
+            )
+            return true
+        }
+
+    }
+
     @SuppressLint("ClickableViewAccessibility")
     override fun init(e: Engine) {
         sceneContext = ObjectSceneContext(e)
         sceneContext.initScene()
         cameraManipulator = Manipulator.Builder()
-            .orbitHomePosition(0f,0f,1f)
-            .targetPosition(0f,0f,0f)
-            .orbitSpeed(0.01f,0.01f)
+            .orbitHomePosition(0f, 0f, 1f)
+            .targetPosition(0f, 0f, 0f)
+            .orbitSpeed(0.01f, 0.01f)
             .build(Manipulator.Mode.ORBIT)
-        //cameraManipulator.set
         gestureDetector = GestureDetector(surfaceView, cameraManipulator)
-        surfaceView.setOnTouchListener { _, event ->
-            gestureDetector.onTouchEvent(event);
-            cameraManipulator.getLookAt(eyePos, target, upward)
-            val tr = FloatArray(16)
-            sceneContext.camera.getModelMatrix(tr)
-            sceneContext.camera.setModelMatrix(tr)
-            sceneContext.camera.lookAt(
-                eyePos[0], eyePos[1], eyePos[2],
-                target[0], target[1], target[2],
-                upward[0], -1.0, upward[2])
-            return@setOnTouchListener true
-        }
+        updateGestureHandler()
     }
+
+    @SuppressLint("ClickableViewAccessibility")
+    private fun updateGestureHandler() {
+        if (isEditMode) {
+            surfaceView.setOnTouchListener(surfaceGestureHandler)
+        } else
+            surfaceView.setOnTouchListener(null)
+    }
+
     override fun activate() {
 
     }
+
     override fun update() {
         sceneContext.update()
     }
-    override fun beforeRender(renderer: Renderer) {
 
+    var i = 0
+    override fun beforeRender(renderer: Renderer) {
+        if(i == 0){
+            val cameraObjectInitPos = FloatArray(16)
+            android.opengl.Matrix.setIdentityM(cameraObjectInitPos,0)
+            android.opengl.Matrix.translateM(cameraObjectInitPos,0,10f,10f,10f)
+            sceneContext.setCameraTransform(cameraObjectInitPos)
+            sceneContext.setBoxTransform(cameraObjectInitPos)
+            i++
+        }
     }
 
     override fun render(renderer: Renderer) {
@@ -72,21 +109,31 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
 //            return
         renderer.render(sceneContext.view)
     }
+
     private fun createMesh() {
 
     }
-    fun setCameraCallibration(w:Double,h:Double, fx:Double,fy:Double,cx:Double,cy:Double){
-       cameraCallibration = CameraCallibration(w,h,fx,fy,cx,cy)
-       val doubleArray = CameraUtils.getProjectionMatrix(w,h,fx,fy,cx,cy,0.001,1000.0)
-       sceneContext.camera.setCustomProjection(doubleArray, 0.001, 1000.0)
+
+    fun setCameraCallibration(
+        w: Double,
+        h: Double,
+        fx: Double,
+        fy: Double,
+        cx: Double,
+        cy: Double
+    ) {
+        cameraCallibration = CameraCallibration(w, h, fx, fy, cx, cy)
+        val doubleArray = CameraUtils.getProjectionMatrix(w, h, fx, fy, cx, cy, 0.001, 1000.0)
+        sceneContext.camera.setCustomProjection(doubleArray, 0.001, 1000.0)
     }
+
     fun updateCameraMatrix(tcw: MatShared?) {
-        if(tcw == null)
+        if (tcw == null)
             return
-        handler.post{
+        handler.post {
             //https://github.com/google/filament/blob/ba9cb2fe43f45c407e31fe197aa7e72d0e2810e5/filament/src/details/Camera.cpp#L201
             var twc = FloatArray(16)
-            android.opengl.Matrix.invertM(twc,0,tcw.toGlMatrix(),0)
+            android.opengl.Matrix.invertM(twc, 0, tcw.toGlMatrix(), 0)
             sceneContext.camera.setModelMatrix(twc)
         }
     }
@@ -94,38 +141,58 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
 
     fun setMapPoints(mapPoints: List<MapPoint>) {
         mMapPoints = mapPoints
-        val vertexes = mMapPoints.map { StaticMeshes.MeshVertex(it.x,it.y,it.z,if(it.isReferenced) Color.GREEN else Color.RED) }
+        val vertexes = mMapPoints.map {
+            StaticMeshes.MeshVertex(
+                it.x,
+                it.y,
+                it.z,
+                if (it.isReferenced) Color.GREEN else Color.RED
+            )
+        }
         sceneContext.updatePointCloud(vertexes)
     }
 
     override fun onResize(width: Int, height: Int) {
+        lastWidth = width
+        lastHeight = height
+
+        updateCameraProjection(width, height)
+
+    }
+
+    private fun updateCameraProjection(width: Int, height: Int) {
         val near = 0.001
         val far = 1000.0
-        val doubleArray = CameraUtils.getProjectionMatrix(cameraCallibration.x,
-            cameraCallibration.h,
-            cameraCallibration.fx,
-            cameraCallibration.fy,
-            cameraCallibration.cx,
-            cameraCallibration.cy,
-            near,far)
-//        sceneContext.camera.setCustomProjection(doubleArray, 0.001, 1000.0)
-        val aspect = width.toDouble() / height.toDouble()
-        sceneContext.camera.setProjection(45.0, aspect, 0.1, 20.0, Camera.Fov.VERTICAL)
+        if (isEditMode) {
+            val aspect = width.toDouble() / height.toDouble()
+            sceneContext.camera.setProjection(45.0, aspect, near, far, Camera.Fov.VERTICAL)
+        } else {
+            val doubleArray = CameraUtils.getProjectionMatrix(
+                cameraCallibration.x,
+                cameraCallibration.h,
+                cameraCallibration.fx,
+                cameraCallibration.fy,
+                cameraCallibration.cx,
+                cameraCallibration.cy,
+                near, far
+            )
+            sceneContext.camera.setCustomProjection(doubleArray, near,far)
+        }
         sceneContext.view.viewport = Viewport(0, 0, width, height)
-        cameraManipulator.setViewport(width,height)
+        cameraManipulator.setViewport(width, height)
     }
 
     override fun destroy(engine: Engine) {
     }
 
-    fun setPlane(p:Plane?){
-        if(p == null)
+    fun setPlane(p: Plane?) {
+        if (p == null)
             return
         plane = p
         val glMatrix = plane!!.getGLTpw()
         val iv = FloatArray(16)
-        android.opengl.Matrix.invertM(iv,0,glMatrix,0)
-        handler.post{
+        android.opengl.Matrix.invertM(iv, 0, glMatrix, 0)
+        handler.post {
             sceneContext.setBoxTransform(glMatrix)
         }
     }
@@ -133,9 +200,9 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
     fun setCameraObjectTransform(tcw: MatShared?) {
         val glTcw = tcw?.toGlMatrix() ?: return
         val glTwc = FloatArray(16)
-        android.opengl.Matrix.invertM(glTwc,0,glTcw,0)
-        val glOw  = FloatArray(16)  // world origin
-        android.opengl.Matrix.setIdentityM(glOw,0)
+        android.opengl.Matrix.invertM(glTwc, 0, glTcw, 0)
+        val glOw = FloatArray(16)  // world origin
+        android.opengl.Matrix.setIdentityM(glOw, 0)
 
         //ORB_SLAM3\src\MapDrawer.cc#462
         glOw[12] = glTwc[12]
@@ -168,6 +235,14 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
 //        val res= FloatArray(16)
 //        android.opengl.Matrix.invertM(res,0,glMatrix,0)
 
+    }
+
+    fun setEditMode(editMode: Boolean) {
+        isEditMode = editMode
+        updateCameraProjection(lastWidth, lastHeight)
+        updateGestureHandler()
+        sceneContext.enableSkyBox(editMode)
+        sceneContext.setCameraObjectVisibility(isEditMode)
     }
 
 }

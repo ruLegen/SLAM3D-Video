@@ -1,10 +1,12 @@
 package com.mag.slam3dvideo.render.components
 
+import androidx.core.content.contentValuesOf
 import com.google.android.filament.IndexBuffer
 import com.google.android.filament.MaterialInstance
 import com.google.android.filament.RenderableManager
 import com.google.android.filament.RenderableManager.PrimitiveType
 import com.google.android.filament.VertexBuffer
+import com.google.android.filament.utils.conjugate
 import com.mag.slam3dvideo.render.mesh.DynamicMesh
 import com.mag.slam3dvideo.render.mesh.Mesh
 import com.mag.slam3dvideo.render.SceneContext
@@ -23,23 +25,33 @@ class MeshRendererComponent : ObjectComponent() {
     private var buffers: MeshBuffers? = null
     private var shouldUpdateMaterialInstance: Boolean = false
     private var shouldUpdateMesh: Boolean = false
+    private var shouldUpdateVisibility:Boolean = false
     private var isDynamic: Boolean = false
     var renderable: Int = -1
         private set
     private var mesh: Mesh? = null
     var materialInstance:MaterialInstance? = null
         private set
+
+    var isVisible:Boolean = true
+        private set
     override fun start(context: SceneContext) {
         renderable = parent!!.entity
         RenderableManager.Builder(1)
             .culling(false)
             .build(context.engine, renderable)
-
         // in order to be able renderable, enitity must be added to a fillament scene
         context.scene.addEntity(renderable)
     }
 
     override fun update(context: SceneContext) {
+        if(shouldUpdateVisibility){
+            shouldUpdateVisibility = false
+            if(isVisible)
+                context.scene.addEntity(renderable)
+            else
+                context.scene.removeEntity(renderable)
+        }
         var needUpdateMesh = shouldUpdateMesh
         val needUpdateMatInst = shouldUpdateMaterialInstance
         if(isDynamic && mesh != null){
@@ -50,11 +62,13 @@ class MeshRendererComponent : ObjectComponent() {
         if(!needUpdateMesh && !needUpdateMatInst)
             return
 
-        shouldUpdateMesh =false
-        shouldUpdateMaterialInstance = false
-
         val rcm = context.engine.renderableManager
         val entity = rcm.getInstance(renderable)
+        if(entity == 0)
+            return
+
+        shouldUpdateMesh =false
+        shouldUpdateMaterialInstance = false
 
         if(needUpdateMesh && mesh != null){
             if(mesh is DynamicMesh)
@@ -66,6 +80,11 @@ class MeshRendererComponent : ObjectComponent() {
         if(needUpdateMatInst && materialInstance != null){
            rcm.setMaterialInstanceAt(entity,0,materialInstance!!)
         }
+    }
+
+    fun  setVisibility(visible:Boolean){
+        isVisible = visible
+        shouldUpdateVisibility =true
     }
 
     private fun updateDynamicMesh(context: SceneContext, dynamicMesh: DynamicMesh) {

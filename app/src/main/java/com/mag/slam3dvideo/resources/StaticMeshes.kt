@@ -41,43 +41,44 @@ object StaticMeshes {
         }
     }
 
-    fun getCubeMesh(size:Float = 0.05f): Mesh {
+    fun getCubeMesh(size:Float = 0.05f,xOffset:Float = 0f, yOffset:Float = 0f, zOffset:Float=0f): Mesh {
         val l: Float = -size     // length
         val h: Float = size      // heigh
-        val red = 0xffff0000.toInt()
+        //AABBGGRR
+        val red = 0xff0000ff.toInt()
         val green = 0xff00ff00.toInt()
-        val blue = 0xff0000ff.toInt()
+        val blue = 0xffff0000.toInt()
 
         val verticies = arrayOf(
-            MeshVertex(l, l, h, red),
-            MeshVertex(h, l, h, red),
-            MeshVertex(l, h, h, red),
-            MeshVertex(h, h, h, red),  // FRONT
+            MeshVertex(l+xOffset, l+yOffset, h+zOffset, red),
+            MeshVertex(h+xOffset, l+yOffset, h+zOffset, red),
+            MeshVertex(l+xOffset, h+yOffset, h+zOffset, red),
+            MeshVertex(h+xOffset, h+yOffset, h+zOffset, red),  // FRONT
 
-            MeshVertex(l, l, l, red),
-            MeshVertex(l, h, l, red),
-            MeshVertex(h, l, l, red),
-            MeshVertex(h, h, l, red),  // BACK
+            MeshVertex(l+xOffset, l+yOffset, l+zOffset, red),
+            MeshVertex(l+xOffset, h+yOffset, l+zOffset, red),
+            MeshVertex(h+xOffset, l+yOffset, l+zOffset, red),
+            MeshVertex(h+xOffset, h+yOffset, l+zOffset, red),  // BACK
 
-            MeshVertex(l, l, h, green),
-            MeshVertex(l, h, h, green),
-            MeshVertex(l, l, l, green),
-            MeshVertex(l, h, l, green), // LEFT
+            MeshVertex(l+xOffset, l+yOffset, h+zOffset, green),
+            MeshVertex(l+xOffset, h+yOffset, h+zOffset, green),
+            MeshVertex(l+xOffset, l+yOffset, l+zOffset, green),
+            MeshVertex(l+xOffset, h+yOffset, l+zOffset, green), // LEFT
 
-            MeshVertex(h, l, l, blue),
-            MeshVertex(h, h, l, blue),
-            MeshVertex(h, l, h, blue),
-            MeshVertex(h, h, h, blue), // RIGHT
+            MeshVertex(h+xOffset, l+yOffset, l+zOffset, blue),
+            MeshVertex(h+xOffset, h+yOffset, l+zOffset, blue),
+            MeshVertex(h+xOffset, l+yOffset, h+zOffset, blue),
+            MeshVertex(h+xOffset, h+yOffset, h+zOffset, blue), // RIGHT
 
-            MeshVertex(l, h, h, green),
-            MeshVertex(h, h, h, green),
-            MeshVertex(l, h, l, green),
-            MeshVertex(h, h, l, green), // TOP
+            MeshVertex(l+xOffset, h+yOffset, h+zOffset, green),
+            MeshVertex(h+xOffset, h+yOffset, h+zOffset, green),
+            MeshVertex(l+xOffset, h+yOffset, l+zOffset, green),
+            MeshVertex(h+xOffset, h+yOffset, l+zOffset, green), // TOP
 
-            MeshVertex(l, l, h, blue),
-            MeshVertex(l, l, l, blue),
-            MeshVertex(h, l, h, blue),
-            MeshVertex(h, l, l, blue),  // BOTTOM
+            MeshVertex(l+xOffset, l+yOffset, h+zOffset, blue),
+            MeshVertex(l+xOffset, l+yOffset, l+zOffset, blue),
+            MeshVertex(h+xOffset, l+yOffset, h+zOffset, blue),
+            MeshVertex(h+xOffset, l+yOffset, l+zOffset, blue),  // BOTTOM
         )
 
         val indeces = arrayOf<Short>(
@@ -86,10 +87,6 @@ object StaticMeshes {
 
 
         return MeshOf(1, meshVertexSize, meshAttributes, verticies, indeces, ::put)
-    }
-    fun getCubeDynamicMesh(): DynamicMesh {
-        val mesh = getCubeMesh()
-        return (mesh as MeshOf<*>).asDynamic()
     }
 
     fun <T> MeshOf<T>.asDynamic():DynamicMesh{

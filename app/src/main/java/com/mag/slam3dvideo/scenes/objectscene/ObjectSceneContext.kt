@@ -4,6 +4,7 @@ import android.graphics.Color
 import com.google.android.filament.Camera
 import com.google.android.filament.Engine
 import com.google.android.filament.RenderableManager
+import com.google.android.filament.Skybox
 import com.google.android.filament.View
 import com.mag.slam3dvideo.render.SceneContext
 import com.mag.slam3dvideo.render.SceneObject
@@ -21,6 +22,7 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
         get() {
             return box.entity
         }
+    private lateinit var emptySkyBox: Skybox
     private lateinit var box: SceneObject
     private lateinit var cameraObj: SceneObject
     private lateinit var pointCloud: SceneObject
@@ -29,10 +31,16 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
     init {
         view = engine.createView()
         camera = engine.createCamera(engine.entityManager.create())
+        emptySkyBox = Skybox.Builder().color(0f,0f,0f,1f).build(engine)
+        scene.skybox = emptySkyBox
 
         view.isPostProcessingEnabled = false
         view.camera = camera
         view.scene = scene
+    }
+    fun enableSkyBox(enabled:Boolean){
+        val newSkyBox = if(enabled) emptySkyBox else null
+        scene.skybox = newSkyBox
     }
     fun addVertex(){
         fun randomPointInCircle(radius:Float):StaticMeshes.MeshVertex{
@@ -48,17 +56,15 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
         val vertIndex = dynamicCube.indicies.last()
         val newIndicies = (1..3).map { (vertIndex+it).toShort() }
         val newVertecies= (1..3).map { randomPointInCircle(0.07f) }
-        dynamicCube.addVertices(newVertecies,newIndicies)
+//        dynamicCube.addVertices(newVertecies,newIndicies)
 
     }
     fun initScene() {
-        scene.skybox = null
         box = SceneObject().apply {
             val renderComponent = MeshRendererComponent().apply {
-                val mesh = StaticMeshes.getCubeDynamicMesh()
+                val meshSize = 0.025f
+                val mesh = StaticMeshes.getCubeMesh(meshSize,0f,-meshSize,0f)
                 setMesh(mesh)
-                dynamicCube = mesh as DynamicMeshOf<StaticMeshes.MeshVertex>
-
                 val material = StaticMaterials.getMeshMaterial(this@ObjectSceneContext)
                 setMaterialInstance(material.createInstance())
                 primitiveType = RenderableManager.PrimitiveType.TRIANGLE_STRIP
@@ -80,7 +86,9 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
                 pointCloudMesh = StaticMeshes.getDynamicMesh(1024) as DynamicMeshOf<StaticMeshes.MeshVertex>
                 setMesh(pointCloudMesh)
                 val material = StaticMaterials.getMeshMaterial(this@ObjectSceneContext)
-                setMaterialInstance(material.createInstance())
+                val matInstance = material.createInstance()
+                matInstance.setParameter("size",5f)
+                setMaterialInstance(matInstance)
                 primitiveType = RenderableManager.PrimitiveType.POINTS
             }
             addComponent(renderComponent)
@@ -127,5 +135,9 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
 
 //        val lt = pointCloud.transformComponent.getTransform(this)
 //        val wt = pointCloud.transformComponent.getWorldTransform(this)
+    }
+
+    fun setCameraObjectVisibility(editMode: Boolean) {
+        cameraObj.getComponent<MeshRendererComponent>()?.setVisibility(editMode)
     }
 }

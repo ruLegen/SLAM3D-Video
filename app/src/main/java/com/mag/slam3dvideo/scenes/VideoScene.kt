@@ -40,7 +40,6 @@ import org.opencv.imgproc.Imgproc
 import org.opencv.imgproc.Imgproc.cvtColor
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
-import kotlin.math.roundToInt
 
 interface VideoFrameListener
 {
@@ -50,6 +49,8 @@ class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF ) : Orb
     companion object{
         const val TAG="VideoScene"
     }
+
+    private var isEnabled: Boolean = true
     private var frameListener: VideoFrameListener? = null
     private var lastVideoFrameTimeUsec: Long = 0
     private lateinit var tex: TextureSurface
@@ -96,6 +97,7 @@ class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF ) : Orb
         }
         engine = e
         view = engine.createView()
+
         scene = engine.createScene()
         camera = engine.createCamera(engine.entityManager.create())
         imageReader = ImageReader.newInstance(
@@ -150,10 +152,15 @@ class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF ) : Orb
             .culling(false)
             .build(engine, renderable)
         scene.addEntity(renderable)
-        scene.skybox = Skybox.Builder().color(0.0f, 0f, 0f, 0.0f).build(engine)
+        scene.skybox = Skybox.Builder().color(0.0f, 0f, 0f, 1.0f).build(engine)
+        view.blendMode = View.BlendMode.OPAQUE
         view.isPostProcessingEnabled = false
         view.camera = camera
         view.scene = scene
+    }
+
+    fun setEnabled(enabled:Boolean) {
+        isEnabled = enabled
     }
 
     override fun activate() {
@@ -163,9 +170,11 @@ class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF ) : Orb
     override fun beforeRender(renderer: Renderer) {
         val time = lastVideoFrameTimeUsec;
         frameListener?.frameIsAboutToDraw(time)
+        matInstance
     }
 
     override fun render(renderer: Renderer) {
+        if(isEnabled)
         renderer.render(view)
     }
 
@@ -408,7 +417,7 @@ class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF ) : Orb
         val mat = MaterialBuilder()
             .name("backed_color")
             .uniformParameter(MaterialBuilder.UniformType.MAT4, "vertexTransform")
-            .uniformParameter(MaterialBuilder.UniformType.FLOAT4, "baseColor")
+            .uniformParameter(MaterialBuilder.UniformType.FLOAT, "opacity")
             .samplerParameter(
                 MaterialBuilder.SamplerType.SAMPLER_2D,
                 MaterialBuilder.SamplerFormat.FLOAT,
@@ -419,6 +428,7 @@ class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF ) : Orb
             .require(MaterialBuilder.VertexAttribute.UV0)
             .platform(MaterialBuilder.Platform.MOBILE)
             .shading(MaterialBuilder.Shading.UNLIT)
+            .blending(MaterialBuilder.BlendingMode.TRANSPARENT)
             .vertexDomain(MaterialBuilder.VertexDomain.DEVICE)
             // .depthWrite(false)
             .variantFilter(

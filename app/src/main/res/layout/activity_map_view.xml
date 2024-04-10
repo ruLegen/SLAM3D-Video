@@ -49,7 +49,20 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="frameOffset" />
-
+            <CheckBox
+                android:id="@+id/editModeCheckBox"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:text="edit mode"
+                android:checked="true"/>
+            <CheckBox
+                android:id="@+id/videoShowCheckBox"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:text="show video"
+                android:checked="true"/>
         </LinearLayout>
     </FrameLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

@@ -4,7 +4,15 @@ import com.mag.slam3dvideo.render.components.ObjectComponent
 import com.mag.slam3dvideo.render.components.TransformComponent
 import java.util.ArrayList
 import java.util.UUID
-
+import kotlin.reflect.typeOf
+class Generic<T : Any>(val c: Class<T>) {
+    companion object {
+        inline operator fun <reified T : Any>invoke() = Generic(T::class.java)
+    }
+    fun isInstance(t:T?):Boolean{
+        return c.isInstance(t)
+    }
+}
 open class SceneObject {
     val guid:UUID = UUID.randomUUID()
     val components:Map<UUID,ObjectComponent>
@@ -34,6 +42,9 @@ open class SceneObject {
         componentContainer.remove(component.guid)
     }
 
+    inline fun <reified T> getComponent():T? where T : ObjectComponent{
+        return components.values.find { it is T } as T?
+    }
     fun update(context: SceneContext) {
         if(notInitializedComponents.size > 0){
             val initialized = ArrayList<UUID>(notInitializedComponents.size)

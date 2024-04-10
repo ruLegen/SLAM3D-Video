@@ -18,6 +18,7 @@ object StaticMaterials {
         val mat = MaterialBuilder()
             .name(name)
             .require(MaterialBuilder.VertexAttribute.COLOR)
+            .uniformParameter(MaterialBuilder.UniformType.FLOAT, "size")
             .platform(MaterialBuilder.Platform.MOBILE)
             .shading(MaterialBuilder.Shading.UNLIT)
             .culling(MaterialBuilder.CullingMode.NONE)
@@ -28,6 +29,12 @@ object StaticMaterials {
                    material.baseColor = getColor();
                }
             """
+            )
+            .materialVertex(
+                """
+                void materialVertex(inout MaterialVertexInputs material) {
+                   gl_PointSize = materialParams.size;
+                }"""
             )
             .build()
         val materialBuffer =  mat.buffer

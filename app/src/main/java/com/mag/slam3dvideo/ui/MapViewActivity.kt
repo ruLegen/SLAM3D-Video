@@ -8,7 +8,6 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.InputType
-import android.util.Log
 import android.view.Choreographer
 import android.view.Surface
 import android.view.WindowManager
@@ -98,6 +97,7 @@ class MapViewActivity : AppCompatActivity() {
     }
 
 
+    private var isEditMode: Boolean = false
     private var mFrameOffset: Int = 0
     private var shouldRegenPlane: Boolean = false
     private lateinit var surfaceControlCallback: SurfaceControlCallback
@@ -144,6 +144,13 @@ class MapViewActivity : AppCompatActivity() {
 //        val objLoader = ObjLoader(this,"Models/camera.obj")
 
         binding = ActivityMapViewBinding.inflate(layoutInflater)
+        isEditMode = binding.editModeCheckBox.isChecked
+        binding.editModeCheckBox.setOnCheckedChangeListener { _, isChecked ->
+            setEditMode(isChecked)
+        }
+        binding.videoShowCheckBox.setOnCheckedChangeListener { _, isChecked ->
+            videoScene.setEnabled(isChecked)
+        }
         setContentView(binding.root)
         binding.fpsButton.setOnClickListener {
             askUserInputInt("Enter FPS", null) {
@@ -170,6 +177,13 @@ class MapViewActivity : AppCompatActivity() {
         if (!AssetUtils.askMediaPermissions(this, 1)) {
             initVideoFrameGraber()
         }
+    }
+
+    private fun setEditMode(editMode: Boolean) {
+        isEditMode = editMode
+        objectScene.setEditMode(isEditMode)
+        if(isEditMode)
+            decoderSpeedControlCallback.pause()
     }
 
     private fun askUserInputInt(title: String, value: String?, callback: (i: Int) -> Unit) {
@@ -289,6 +303,7 @@ class MapViewActivity : AppCompatActivity() {
         })
         videoDecoder = VideoDecoder(File(file), videoScene.surface, decoderSpeedControlCallback)
         decoderSpeedControlCallback.setFixedPlaybackRate(30)
+
         decoderSpeedControlCallback.mTotalDuraionUsec = videoDecoder.mVideoDuration.toFloat()
 
         videoScene.setTotalDuration(videoDecoder.mVideoDuration)
@@ -320,7 +335,8 @@ class MapViewActivity : AppCompatActivity() {
         frameProcessorTaskRunner = TaskRunner().apply {
             executeAsync({ processFrame(0) })
         }
-//        videoDecoder.start()
+        videoDecoder.start()
+        decoderSpeedControlCallback.pause()
     }
 
     private fun decodeFrame(frame: Int) {
@@ -365,13 +381,12 @@ class MapViewActivity : AppCompatActivity() {
         }
         if (channels == -1)
             throw Exception("Unsupported bitmap mode ${bitmap.config}")
-        //videoScene.processBitmap(bitmap)
         val tcw = orbProcessor.processFrame(bitmap)
         orbFrameInfoHolder.setCameraPosAtFrame(frameNumber, tcw)
         val state = orbProcessor.getTrackingState()
         if (state == TrackingState.OK) {
-            if(i == 0)
-                objectScene.setCloudPointOrigin(tcw);
+//            if(i == 0)
+//                objectScene.setCloudPointOrigin(tcw);
             if (i == 15 || shouldRegenPlane) {
                 shouldRegenPlane = false
                 plane = orbProcessor.detectPlane()
@@ -384,12 +399,13 @@ class MapViewActivity : AppCompatActivity() {
             orbFrameInfoHolder.setKeypointsAtFrame(frameNumber, keys)
             val mapPoints = orbProcessor.getCurrentMapPoints()
             objectScene.setMapPoints(mapPoints)
-            objectScene.setCameraObjectTransform(tcw)
 
+            if(isEditMode)
+                objectScene.setCameraObjectTransform(tcw)
         }
 
-        keypointsScene.drawingRect = videoScene.drawingRect
-        keypointsScene.setBitmapInfo(videoScene.bitmapStretch, videoScene.bitmapSize)
+//        keypointsScene.drawingRect = videoScene.drawingRect
+//        keypointsScene.setBitmapInfo(videoScene.bitmapStretch, videoScene.bitmapSize)
 //        Log.d("DECODER", "Decoded ${frameNumber}/${videoRetriever?.frameCount}")
         setInfoText("Decoded $frameNumber/${videoRetriever?.frameCount} | State = $state")
         frameBufferQueue.releaseConsumedBuffer(decodedBitmap)
@@ -406,7 +422,7 @@ class MapViewActivity : AppCompatActivity() {
         val size = videoRetriever!!.frameSize
         videoScene.processBitmap(RectF(0f, 0f, size.width, size.height))
         objectScene.updateCameraMatrix(cameraPos)
-        keypointsScene.updateKeypoints(points)
+//        keypointsScene.updateKeypoints(points)
 //        Thread.sleep(100)
 //        imagePreviewTaskRunner?.executeAsync({ previewImage(frameNumber + 1) })
     }
@@ -445,7 +461,7 @@ class MapViewActivity : AppCompatActivity() {
     }
 
     fun allScenes(): Array<OrbScene> {
-        return arrayOf(videoScene, objectScene, keypointsScene)
+        return arrayOf(videoScene,objectScene/*keypointsScene*/)
     }
 
     inner class FrameCallback : Choreographer.FrameCallback {
@@ -458,11 +474,18 @@ class MapViewActivity : AppCompatActivity() {
                 // If beginFrame() returns false you should skip the frame
                 // This means you are sending frames too quickly to the GPU
                 if (renderer.beginFrame(swapChain!!, frameTimeNanos)) {
+                    renderer.clearOptions
                     allScenes().forEach {
                         it.beforeRender(renderer)
                     }
                     allScenes().forEach {
-                        it.render(renderer)
+                        if(it !is VideoScene)
+                            it.render(renderer)
+                        else
+                        {
+                            if(!isEditMode)
+                                it.render(renderer)
+                        }
                     }
                     renderer.endFrame()
                     engine.flushAndWait()
@@ -482,9 +505,13 @@ class MapViewActivity : AppCompatActivity() {
                 if (SwapChain.isSRGBSwapChainSupported(engine)) {
                     flags = flags or SwapChain.CONFIG_SRGB_COLORSPACE
                 }
+                flags = flags
             }
-
             swapChain = engine.createSwapChain(surface, flags)
+            renderer.clearOptions = renderer.clearOptions.apply {
+                clear = true
+                clearColor = floatArrayOf( 0.0f, 0.0f, 0.0f, 0.0f )
+            }
             displayHelper.attach(renderer, surfaceView.display);
         }
 

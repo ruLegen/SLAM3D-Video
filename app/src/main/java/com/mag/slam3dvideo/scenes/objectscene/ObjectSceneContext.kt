@@ -10,6 +10,7 @@ import com.mag.slam3dvideo.render.SceneContext
 import com.mag.slam3dvideo.render.SceneObject
 import com.mag.slam3dvideo.render.components.MeshRendererComponent
 import com.mag.slam3dvideo.render.mesh.DynamicMeshOf
+import com.mag.slam3dvideo.resources.AssetMeshes
 import com.mag.slam3dvideo.resources.StaticMaterials
 import com.mag.slam3dvideo.resources.StaticMeshes
 
@@ -73,7 +74,7 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
         }
         cameraObj = SceneObject().apply {
             val renderComponent = MeshRendererComponent().apply {
-                val mesh = StaticMeshes.getCubeMesh(0.01f)
+                val mesh = AssetMeshes.getCamera()
                 setMesh(mesh)
                 val material = StaticMaterials.getMeshMaterial(this@ObjectSceneContext)
                 setMaterialInstance(material.createInstance())

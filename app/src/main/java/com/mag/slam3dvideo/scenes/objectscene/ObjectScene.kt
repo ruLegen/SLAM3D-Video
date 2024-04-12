@@ -91,29 +91,12 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
     override fun update() {
         sceneContext.update()
     }
-
-    var i = 0
     override fun beforeRender(renderer: Renderer) {
-        if(i == 0){
-            val cameraObjectInitPos = FloatArray(16)
-            android.opengl.Matrix.setIdentityM(cameraObjectInitPos,0)
-            android.opengl.Matrix.translateM(cameraObjectInitPos,0,10f,10f,10f)
-            sceneContext.setCameraTransform(cameraObjectInitPos)
-            sceneContext.setBoxTransform(cameraObjectInitPos)
-            i++
-        }
     }
 
     override fun render(renderer: Renderer) {
-//        if(plane == null)
-//            return
         renderer.render(sceneContext.view)
     }
-
-    private fun createMesh() {
-
-    }
-
     fun setCameraCallibration(
         w: Double,
         h: Double,
@@ -132,7 +115,7 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
             return
         handler.post {
             //https://github.com/google/filament/blob/ba9cb2fe43f45c407e31fe197aa7e72d0e2810e5/filament/src/details/Camera.cpp#L201
-            var twc = FloatArray(16)
+            val twc = FloatArray(16)
             android.opengl.Matrix.invertM(twc, 0, tcw.toGlMatrix(), 0)
             sceneContext.camera.setModelMatrix(twc)
         }
@@ -155,9 +138,7 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
     override fun onResize(width: Int, height: Int) {
         lastWidth = width
         lastHeight = height
-
         updateCameraProjection(width, height)
-
     }
 
     private fun updateCameraProjection(width: Int, height: Int) {
@@ -201,40 +182,16 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
         val glTcw = tcw?.toGlMatrix() ?: return
         val glTwc = FloatArray(16)
         android.opengl.Matrix.invertM(glTwc, 0, glTcw, 0)
-        val glOw = FloatArray(16)  // world origin
-        android.opengl.Matrix.setIdentityM(glOw, 0)
 
         //ORB_SLAM3\src\MapDrawer.cc#462
-        glOw[12] = glTwc[12]
-        glOw[13] = glTwc[13]
-        glOw[14] = glTwc[14]
+        // just only a translation
+        //val glOw = FloatArray(16)  // world origin
+        //android.opengl.Matrix.setIdentityM(glOw, 0)
+        //glOw[12] = glTwc[12]
+        //glOw[13] = glTwc[13]
+        //glOw[14] = glTwc[14]
 
-        sceneContext.setCameraTransform(glOw)
-//        val res= FloatArray(16)
-//        android.opengl.Matrix.invertM(res,0,glMatrix,0)
-    }
-
-    fun setCloudPointOrigin(tcw: MatShared?) {
-        val glTcw = tcw?.toGlMatrix() ?: return
-//        val glTwc = FloatArray(16)
-//        android.opengl.Matrix.invertM(glTwc,0,glTcw,0)
-//        val glOw  = FloatArray(16)  // world origin
-//        android.opengl.Matrix.setIdentityM(glOw,0)
-//
-//        //ORB_SLAM3\src\MapDrawer.cc#462
-//        glOw[12] = glTwc[12]
-//        glOw[13] = glTwc[13]
-//        glOw[14] = glTwc[14]
-//
-//        val localTransform = FloatArray(16)
-//        android.opengl.Matrix.setIdentityM(localTransform,0)
-//        android.opengl.Matrix.rotateM(localTransform,0,180f,0f,0f,1f)
-//        val r = FloatArray(16)
-//        android.opengl.Matrix.multiplyMM(r,0,glOw,0,localTransform,0)
-//        sceneContext.setCloudPointOrigin(r)
-//        val res= FloatArray(16)
-//        android.opengl.Matrix.invertM(res,0,glMatrix,0)
-
+        sceneContext.setCameraTransform(glTwc)
     }
 
     fun setEditMode(editMode: Boolean) {

@@ -8,7 +8,6 @@ import com.google.android.filament.View
 open class SceneContext(val engine: Engine) {
     var scene: Scene
         protected set
-
     val sceneObjectContainer = SceneContainer()
 
     init {

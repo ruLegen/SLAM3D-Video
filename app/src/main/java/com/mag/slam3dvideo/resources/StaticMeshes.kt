@@ -13,7 +13,7 @@ object StaticMeshes {
         val x: Float,
         val y: Float,
         val z: Float,
-        val c: Int,
+        var c: Int,
     )
     val meshVertexSize = 3 * Float.SIZE_BYTES + Int.SIZE_BYTES
     val meshAttributes = arrayListOf(

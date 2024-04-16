@@ -53,7 +53,9 @@ open class SceneObject {
     inline fun <reified T> getComponent():T? where T : ObjectComponent{
         return components.values.find { it is T } as T?
     }
-
+    inline fun <reified T> getComponents():T? where T : Collection<ObjectComponent>{
+        return components.values.filter { it is T } as T?
+    }
     fun addChild(context: SceneContext, obj:SceneObject){
         if(childerContainer.containsKey(obj.guid))
             return

@@ -20,6 +20,7 @@ import com.mag.slam3dvideo.orb3.Plane
 import com.mag.slam3dvideo.resources.StaticMeshes
 import com.mag.slam3dvideo.scenes.OrbScene
 import com.mag.slam3dvideo.utils.CameraUtils
+import org.opencv.core.Mat.Tuple3
 
 data class CameraCallibration(
     val x: Double,
@@ -200,6 +201,16 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
         updateGestureHandler()
         sceneContext.enableSkyBox(editMode)
         sceneContext.setCameraObjectVisibility(isEditMode)
+    }
+
+    fun updateCameraTrajectory(tcw: MatShared?) {
+        val glTcw = tcw?.toGlMatrix() ?: return
+        val glTwc = FloatArray(16)
+        android.opengl.Matrix.invertM(glTwc, 0, glTcw, 0)
+        val x = glTwc[12]
+        val y = glTwc[13]
+        val z = glTwc[14]
+        sceneContext.addPointsToCameraTrajectory(arrayListOf(Tuple3<Float>(x,y,z)))
     }
 
 }

@@ -1,5 +1,6 @@
 package com.mag.slam3dvideo.scenes.objectscene
 
+import android.graphics.Color
 import com.google.android.filament.Camera
 import com.google.android.filament.Engine
 import com.google.android.filament.RenderableManager
@@ -12,7 +13,7 @@ import com.mag.slam3dvideo.render.mesh.DynamicMeshOf
 import com.mag.slam3dvideo.resources.AssetMeshes
 import com.mag.slam3dvideo.resources.StaticMaterials
 import com.mag.slam3dvideo.resources.StaticMeshes
-import com.mag.slam3dvideo.render.components.LightComponent
+import org.opencv.core.Mat.Tuple3
 
 class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
     var camera: Camera
@@ -21,6 +22,8 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
         private set
 
     private var emptySkyBox: Skybox
+    private lateinit var cameraTrajectory: SceneObject
+    private lateinit var trajLine: DynamicMeshOf<StaticMeshes.MeshVertex>
     private lateinit var boxRoot: SceneObject
     private lateinit var cameraObjRoot: SceneObject
     private lateinit var cameraObj: SceneObject
@@ -62,11 +65,10 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
         boxRoot = SceneObject().apply {
             transformComponent.setTransform(this@ObjectSceneContext,initialObjectPositions)
         }
-        val box = SceneObject().apply {
+        val camaro = SceneObject().apply {
             val renderComponent = MeshRendererComponent().apply {
                 val meshSize = 0.025f
 //                val mesh = StaticMeshes.getCubeMesh(meshSize,0f,-meshSize,0f)
-
                 setMesh(AssetMeshes.getCamaro())
                 val material = StaticMaterials.getMeshMaterial(this@ObjectSceneContext)
                 setMaterialInstance(material.createInstance())
@@ -74,14 +76,13 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
             }
             addComponent(renderComponent)
             val initialTransform = FloatArray(16)
-            val size = 0.13f
+            val size = 0.07f
             android.opengl.Matrix.setIdentityM(initialTransform,0)
             android.opengl.Matrix.scaleM(initialTransform,0,size,-size,size)            // flip Y
             android.opengl.Matrix.rotateM(initialTransform,0,180f,0f,1f,0f)    // rotate that forward looked to +Z
             transformComponent.setTransform(this@ObjectSceneContext,initialTransform)
-            //transformComponent.setTransform(this@ObjectSceneContext,initialObjectPositions)
         }
-        boxRoot.addChild(this,box)
+        boxRoot.addChild(this,camaro)
 
 
         cameraObjRoot = SceneObject().apply {
@@ -126,11 +127,25 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
             }
             addComponent(renderComponent)
         }
+
+        cameraTrajectory = SceneObject().apply {
+            trajLine = StaticMeshes.getDynamicMesh(2047) as DynamicMeshOf<StaticMeshes.MeshVertex>
+            val material = StaticMaterials.getMeshMaterial(this@ObjectSceneContext)
+            val matInstance = material.createInstance()
+
+            val lineRenderer = MeshRendererComponent().apply {
+                setMesh(trajLine)
+                primitiveType = RenderableManager.PrimitiveType.LINE_STRIP
+                setMaterialInstance(matInstance)
+            }
+            addComponent(lineRenderer)
+        }
 //        sceneObjectContainer.addObject(light)
         sceneObjectContainer.addObject(boxRoot)
         sceneObjectContainer.addObject(cameraObjRoot)
         sceneObjectContainer.addObject(gizmo)
         sceneObjectContainer.addObject(pointCloud)
+        sceneObjectContainer.addObject(cameraTrajectory)
     }
     fun setBoxTransform(matrix:FloatArray){
         boxRoot.transformComponent.setTransform(this,matrix)
@@ -145,8 +160,16 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
             indices[i] = i.toShort()
         pointCloudMesh.updateMesh(vertexes,indices.toList())
     }
-
+    fun addPointsToCameraTrajectory(vertexes: List<Tuple3<Float>>){
+        val lastIndex = trajLine.indicies.last()
+        val indices = ShortArray(vertexes.size)
+        for (i in 0 until  vertexes.size)
+            indices[i] = (lastIndex +1 + i).toShort()
+        val lineVertex = vertexes.map { StaticMeshes.MeshVertex(it._0,it._1,it._2, Color.GREEN) }
+        trajLine.addVertices(lineVertex,indices.toList())
+    }
     fun setCameraObjectVisibility(editMode: Boolean) {
         cameraObj.getComponent<MeshRendererComponent>()?.setVisibility(editMode)
+        cameraTrajectory.getComponent<MeshRendererComponent>()?.setVisibility(editMode)
     }
 }

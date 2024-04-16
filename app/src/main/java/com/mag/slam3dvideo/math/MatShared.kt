@@ -1,8 +1,5 @@
 package com.mag.slam3dvideo.math
-
-import android.os.Build.VERSION_CODES.M
 import org.opencv.core.Mat
-import org.opencv.core.at
 
 
 /**

@@ -7,15 +7,19 @@ import android.view.View
 import android.widget.Button
 import androidx.appcompat.app.AppCompatActivity
 import com.mag.slam3dvideo.R
-import de.javagl.obj.Obj
-import de.javagl.obj.ObjData
-import de.javagl.obj.ObjReader
+import de.javagl.jgltf.model.GltfModel
+import de.javagl.jgltf.model.creation.GltfModelBuilder
+import de.javagl.jgltf.model.impl.DefaultMeshModel
+import de.javagl.jgltf.model.impl.DefaultMeshPrimitiveModel
+import de.javagl.jgltf.model.impl.DefaultNodeModel
+import de.javagl.jgltf.model.impl.DefaultSceneModel
+import de.javagl.jgltf.model.io.GltfModelWriter
 import it.sephiroth.android.library.uigestures.UIGestureRecognizer
 import it.sephiroth.android.library.uigestures.UIGestureRecognizerDelegate
 import it.sephiroth.android.library.uigestures.UIPanGestureRecognizer
 import it.sephiroth.android.library.uigestures.UIRotateGestureRecognizer
 import it.sephiroth.android.library.uigestures.setGestureDelegate
-import java.io.InputStreamReader
+import java.io.File
 
 
 class DebugActivity : AppCompatActivity() {
@@ -26,12 +30,28 @@ class DebugActivity : AppCompatActivity() {
         val v= findViewById<View>(R.id.view)
         val b = findViewById<Button>(R.id.btn)
         b.setOnClickListener {
-            val input = InputStreamReader(assets.open("Models/camera.obj"))
-            val obj: Obj = ObjReader.read(input)
-            val vert = ObjData.getVertices(obj);
-            val faceVertexIndices = ObjData.getFaceVertexIndicesArray(obj);
-            val faceTexCoordIndices = ObjData.getFaceTexCoordIndicesArray(obj);
-            val faceNormalIndices = ObjData.getFaceNormalIndicesArray(obj);
+            val gltfModelWriter = GltfModelWriter()
+
+            val scene = DefaultSceneModel().apply {
+                val mesh = DefaultMeshModel()
+//                val defMeshPrimitive = DefaultMeshPrimitiveModel()
+//                mesh.addMeshPrimitiveModel()
+                val node = DefaultNodeModel()
+//                node.addMeshModel(mesh)
+                val nodePosition= FloatArray(16)
+                android.opengl.Matrix.setIdentityM(nodePosition,0)
+                android.opengl.Matrix.translateM(nodePosition,0,1f,2f,3f)
+                node.matrix = nodePosition
+                addNode(node)
+            }
+            val gltfModelBuilder = GltfModelBuilder.create()
+            gltfModelBuilder.addSceneModel(scene)
+
+            val gltfModel: GltfModel? = gltfModelBuilder.build()
+
+            val outFile = File.createTempFile("awd","dawd")
+            Log.d("DEBUG",outFile.absolutePath);
+            gltfModelWriter.write(gltfModel,outFile)
         }
         val delegate= UIGestureRecognizerDelegate();
 

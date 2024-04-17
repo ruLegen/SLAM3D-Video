@@ -151,4 +151,8 @@ class MeshRendererComponent : ObjectComponent() {
         materialInstance = newMaterialInstance
         shouldUpdateMaterialInstance = true
     }
+
+    fun getMesh() :Mesh? {
+        return mesh
+    }
 }

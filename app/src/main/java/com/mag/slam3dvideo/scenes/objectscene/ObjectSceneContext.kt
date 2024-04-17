@@ -62,10 +62,10 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
         android.opengl.Matrix.setIdentityM(initialObjectPositions,0)
         android.opengl.Matrix.translateM(initialObjectPositions,0,10f,10f,10f)
 
-        boxRoot = SceneObject().apply {
+        boxRoot = SceneObject("boxRoot").apply {
             transformComponent.setTransform(this@ObjectSceneContext,initialObjectPositions)
         }
-        val camaro = SceneObject().apply {
+        val camaro = SceneObject("camaro").apply {
             val renderComponent = MeshRendererComponent().apply {
                 val meshSize = 0.025f
 //                val mesh = StaticMeshes.getCubeMesh(meshSize,0f,-meshSize,0f)
@@ -85,10 +85,10 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
         boxRoot.addChild(this,camaro)
 
 
-        cameraObjRoot = SceneObject().apply {
+        cameraObjRoot = SceneObject("cameraRoot").apply {
             transformComponent.setTransform(this@ObjectSceneContext,initialObjectPositions)
         }
-        cameraObj = SceneObject().apply {
+        cameraObj = SceneObject("cameraObj").apply {
             val renderComponent = MeshRendererComponent().apply {
                 val mesh = AssetMeshes.getCamera()
                 setMesh(mesh)
@@ -105,7 +105,7 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
             transformComponent.setTransform(this@ObjectSceneContext,initialTransform)
         }
         cameraObjRoot.addChild(this,cameraObj)
-        pointCloud = SceneObject().apply {
+        pointCloud = SceneObject("pointCloud").apply {
             val renderComponent = MeshRendererComponent().apply {
                 pointCloudMesh = StaticMeshes.getDynamicMesh(8000) as DynamicMeshOf<StaticMeshes.MeshVertex>
                 setMesh(pointCloudMesh)
@@ -117,7 +117,7 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
             }
             addComponent(renderComponent)
         }
-        val gizmo = SceneObject().apply {
+        val gizmo = SceneObject("gizmoWorld").apply {
             val renderComponent = MeshRendererComponent().apply {
                 val gizmo = StaticMeshes.getGizmo(1f)
                 setMesh(gizmo)
@@ -128,7 +128,7 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
             addComponent(renderComponent)
         }
 
-        cameraTrajectory = SceneObject().apply {
+        cameraTrajectory = SceneObject("cameraTrajectory").apply {
             trajLine = StaticMeshes.getDynamicMesh(2047) as DynamicMeshOf<StaticMeshes.MeshVertex>
             val material = StaticMaterials.getMeshMaterial(this@ObjectSceneContext)
             val matInstance = material.createInstance()
@@ -141,11 +141,11 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
             addComponent(lineRenderer)
         }
 //        sceneObjectContainer.addObject(light)
-        sceneObjectContainer.addObject(boxRoot)
+//        sceneObjectContainer.addObject(boxRoot)
         sceneObjectContainer.addObject(cameraObjRoot)
-        sceneObjectContainer.addObject(gizmo)
-        sceneObjectContainer.addObject(pointCloud)
-        sceneObjectContainer.addObject(cameraTrajectory)
+//        sceneObjectContainer.addObject(gizmo)
+//        sceneObjectContainer.addObject(pointCloud)
+//        sceneObjectContainer.addObject(cameraTrajectory)
     }
     fun setBoxTransform(matrix:FloatArray){
         boxRoot.transformComponent.setTransform(this,matrix)

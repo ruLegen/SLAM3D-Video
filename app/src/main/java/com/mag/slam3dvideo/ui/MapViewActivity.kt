@@ -113,10 +113,11 @@ class MapViewActivity : AppCompatActivity() {
     private var frameProcessorTaskRunner: TaskRunner? = null
     private var imagePreviewTaskRunner: TaskRunner? = null
 
-//        var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20230318_132255477.mp4"
-//    var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240223_143249538.mp4"
-    var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240409_084554114.mp4"
-//    var file: String = "/storage/emulated/0/DCIM/Camera/with_frames.mp4"
+//  var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20230318_132255477.mp4"
+//  var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240223_143249538.mp4"   // park
+//  var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240409_084554114.mp4"   // outside_dorm
+    var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240414_190423180.mp4"   // face
+//  var file: String = "/storage/emulated/0/DCIM/Camera/with_frames.mp4"              // park
 
     private lateinit var surfaceView: SurfaceMediaPlayerControl
     private lateinit var uiHelper: UiHelper
@@ -146,6 +147,9 @@ class MapViewActivity : AppCompatActivity() {
 
         binding = ActivityMapViewBinding.inflate(layoutInflater)
         isEditMode = binding.editModeCheckBox.isChecked
+        binding.exportScene.setOnClickListener {
+            objectScene.export()
+        }
         binding.editModeCheckBox.setOnCheckedChangeListener { _, isChecked ->
             setEditMode(isChecked)
         }

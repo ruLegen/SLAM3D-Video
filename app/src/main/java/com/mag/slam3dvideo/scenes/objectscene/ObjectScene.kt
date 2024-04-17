@@ -20,6 +20,7 @@ import com.mag.slam3dvideo.orb3.Plane
 import com.mag.slam3dvideo.resources.StaticMeshes
 import com.mag.slam3dvideo.scenes.OrbScene
 import com.mag.slam3dvideo.utils.CameraUtils
+import com.mag.slam3dvideo.utils.SceneExporter
 import org.opencv.core.Mat.Tuple3
 
 data class CameraCallibration(
@@ -211,6 +212,10 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
         val y = glTwc[13]
         val z = glTwc[14]
         sceneContext.addPointsToCameraTrajectory(arrayListOf(Tuple3<Float>(x,y,z)))
+    }
+
+    fun export() {
+        SceneExporter.export(sceneContext)
     }
 
 }

@@ -38,7 +38,6 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="fps" />
-
             <Button
                 android:id="@+id/planeButton"
                 android:layout_width="wrap_content"
@@ -49,6 +48,11 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="frameOffset" />
+            <Button
+                android:id="@+id/exportScene"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="exportScene" />
             <CheckBox
                 android:id="@+id/editModeCheckBox"
                 android:layout_width="wrap_content"

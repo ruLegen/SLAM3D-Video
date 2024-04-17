@@ -14,7 +14,7 @@ class Generic<T : Any>(val c: Class<T>) {
         return c.isInstance(t)
     }
 }
-open class SceneObject {
+open class SceneObject(val name:String="object") {
     val guid:UUID = UUID.randomUUID()
     val components:Map<UUID,ObjectComponent>
         get()= componentContainer

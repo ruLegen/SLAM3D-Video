@@ -64,9 +64,9 @@ object SceneExporter {
             val vertexData = objMesh.getVertexDataBuffer()
 //            val indexBuffer = objMesh.getIndexDataBuffer()
             val indexBuffer = ByteBuffer.allocateDirect(vertexCount*Short.SIZE_BYTES)
-                (0 until vertexCount).map {
-                    indexBuffer.putShort(it.toShort())
-                }
+            (0 until vertexCount).map {
+                indexBuffer.putShort(it.toShort())
+            }
             val attributes = objMesh.attributes
             val gltfMesh = DefaultMeshModel()
             val meshPrimitiveBuilder = MeshPrimitiveBuilder.create()

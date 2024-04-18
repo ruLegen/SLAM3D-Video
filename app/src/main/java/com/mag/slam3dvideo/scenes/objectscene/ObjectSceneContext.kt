@@ -141,9 +141,9 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
             addComponent(lineRenderer)
         }
 //        sceneObjectContainer.addObject(light)
-//        sceneObjectContainer.addObject(boxRoot)
+        sceneObjectContainer.addObject(boxRoot)
         sceneObjectContainer.addObject(cameraObjRoot)
-//        sceneObjectContainer.addObject(gizmo)
+        sceneObjectContainer.addObject(gizmo)
 //        sceneObjectContainer.addObject(pointCloud)
 //        sceneObjectContainer.addObject(cameraTrajectory)
     }

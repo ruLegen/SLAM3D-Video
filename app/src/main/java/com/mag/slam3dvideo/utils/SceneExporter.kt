@@ -62,37 +62,33 @@ object SceneExporter {
         if (objMesh != null) {
             val vertexCount  = objMesh.vertexCount
             val vertexData = objMesh.getVertexDataBuffer()
-//            val indexBuffer = objMesh.getIndexDataBuffer()
-            val indexBuffer = ByteBuffer.allocateDirect(vertexCount*Short.SIZE_BYTES)
-            (0 until vertexCount).map {
-                indexBuffer.putShort(it.toShort())
-            }
+            val indexBuffer = objMesh.getIndexDataBuffer()
+//            val indexBuffer = ByteBuffer.allocateDirect(vertexCount*Short.SIZE_BYTES)
+//            (0 until vertexCount).map {
+//                indexBuffer.putShort(it.toShort())
+//            }
             val attributes = objMesh.attributes
             val gltfMesh = DefaultMeshModel()
             val meshPrimitiveBuilder = MeshPrimitiveBuilder.create()
-            meshPrimitiveBuilder.setPoints()
-//            when (meshRenderer.primitiveType) {
-//                RenderableManager.PrimitiveType.POINTS -> meshPrimitiveBuilder.setPoints()
-//                RenderableManager.PrimitiveType.LINES -> meshPrimitiveBuilder.setLines()
-//                RenderableManager.PrimitiveType.TRIANGLES -> meshPrimitiveBuilder.setTriangles()
-//                else -> {}
-//            }
+            when (meshRenderer.primitiveType) {
+                RenderableManager.PrimitiveType.POINTS -> meshPrimitiveBuilder.setPoints()
+                RenderableManager.PrimitiveType.LINES -> meshPrimitiveBuilder.setLines()
+                RenderableManager.PrimitiveType.TRIANGLES -> meshPrimitiveBuilder.setTriangles()
+                else -> {}
+            }
             val indicesAccessor = AccessorModels.create(GltfConstants.GL_UNSIGNED_SHORT,ElementType.SCALAR.name,false,indexBuffer as ByteBuffer)
             meshPrimitiveBuilder.setIndices(indicesAccessor)
             attributes.forEach {
                 val name = it.attribute.name
                 val componentType = it.type.toGlTFComponentType()
                 val elementType = it.type.toGlTFElementType()
-                if(name == "COLOR")
-                    return@forEach
                 val accessorModel = DefaultAccessorModel(componentType, vertexCount, elementType)
                 accessorModel.byteStride = it.stride
                 accessorModel.byteOffset = it.offset
-                accessorModel.isNormalized = false
+                accessorModel.isNormalized = name == "COLOR"
                 accessorModel.accessorData = AccessorDatas.create(accessorModel, vertexData as ByteBuffer)
                 meshPrimitiveBuilder.addAttribute(name, accessorModel)
             }
-
             val primitives = meshPrimitiveBuilder.build()
             gltfMesh.addMeshPrimitiveModel(primitives)
             node.addMeshModel(gltfMesh)

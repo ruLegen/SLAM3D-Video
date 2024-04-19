@@ -4,7 +4,6 @@ import de.javagl.jgltf.impl.v2.CameraPerspective
 import kotlin.math.PI
 import kotlin.math.atan
 
-data class GlTFCameraParameters()
 object CameraUtils {
     fun getProjectionMatrix(w:Double, h:Double, fu:Double, fv:Double, u0:Double, v0:Double, zNear:Double, zFar:Double):DoubleArray{
         val res = DoubleArray(16)           // column major GL matrix

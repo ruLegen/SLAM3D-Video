@@ -148,7 +148,7 @@ class MapViewActivity : AppCompatActivity() {
         binding = ActivityMapViewBinding.inflate(layoutInflater)
         isEditMode = binding.editModeCheckBox.isChecked
         binding.exportScene.setOnClickListener {
-            objectScene.export()
+            objectScene.export(orbFrameInfoHolder)
         }
         binding.editModeCheckBox.setOnCheckedChangeListener { _, isChecked ->
             setEditMode(isChecked)
@@ -390,8 +390,6 @@ class MapViewActivity : AppCompatActivity() {
         orbFrameInfoHolder.setCameraPosAtFrame(frameNumber, tcw)
         val state = orbProcessor.getTrackingState()
         if (state == TrackingState.OK) {
-//            if(i == 0)
-//                objectScene.setCloudPointOrigin(tcw);
             if (i == 15 || shouldRegenPlane) {
                 shouldRegenPlane = false
                 plane = orbProcessor.detectPlane()

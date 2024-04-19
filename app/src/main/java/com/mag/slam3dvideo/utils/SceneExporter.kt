@@ -3,22 +3,24 @@ package com.mag.slam3dvideo.utils
 import android.util.Log
 import com.google.android.filament.RenderableManager
 import com.google.android.filament.VertexBuffer
-import com.google.android.filament.utils.perspective
+import com.mag.slam3dvideo.math.toGlMatrix
 import com.mag.slam3dvideo.render.SceneContext
 import com.mag.slam3dvideo.render.SceneObject
 import com.mag.slam3dvideo.render.components.MeshRendererComponent
 import com.mag.slam3dvideo.render.mesh.DynamicMesh
 import com.mag.slam3dvideo.scenes.objectscene.CameraCallibration
-import de.javagl.jgltf.impl.v2.Camera
 import de.javagl.jgltf.model.AccessorDatas
-import de.javagl.jgltf.model.CameraModel
-import de.javagl.jgltf.model.CameraPerspectiveModel
+import de.javagl.jgltf.model.AnimationModel
 import de.javagl.jgltf.model.ElementType
 import de.javagl.jgltf.model.GltfConstants
 import de.javagl.jgltf.model.GltfModel
+import de.javagl.jgltf.model.NodeModel
 import de.javagl.jgltf.model.creation.GltfModelBuilder
 import de.javagl.jgltf.model.creation.MeshPrimitiveBuilder
 import de.javagl.jgltf.model.impl.DefaultAccessorModel
+import de.javagl.jgltf.model.impl.DefaultAnimationModel
+import de.javagl.jgltf.model.impl.DefaultAnimationModel.DefaultChannel
+import de.javagl.jgltf.model.impl.DefaultAnimationModel.DefaultSampler
 import de.javagl.jgltf.model.impl.DefaultCameraModel
 import de.javagl.jgltf.model.impl.DefaultMeshModel
 import de.javagl.jgltf.model.impl.DefaultNodeModel
@@ -26,6 +28,7 @@ import de.javagl.jgltf.model.impl.DefaultSceneModel
 import de.javagl.jgltf.model.io.GltfModelWriter
 import java.io.File
 import java.nio.ByteBuffer
+import java.nio.ByteOrder
 
 
 class SceneExporter (val cameraLocationHolder: OrbFrameInfoHolder,val cameraCalibration: CameraCallibration) {
@@ -38,6 +41,12 @@ class SceneExporter (val cameraLocationHolder: OrbFrameInfoHolder,val cameraCali
 
         val gltfModelBuilder = GltfModelBuilder.create()
         gltfModelBuilder.addSceneModel(scene)
+
+        val cameraRoot = flattenNodes(nodes).find { it.name == "cameraRoot" }
+        if(cameraRoot != null){
+            val animationModel = createCameraAnimation(cameraLocationHolder,cameraRoot as DefaultNodeModel)
+            gltfModelBuilder.addAnimationModel(animationModel)
+        }
         val gltfModel: GltfModel? = gltfModelBuilder.build()
 
         val outFile = File.createTempFile("gltf_", ".gltf")
@@ -46,6 +55,120 @@ class SceneExporter (val cameraLocationHolder: OrbFrameInfoHolder,val cameraCali
         gltfModelWriter.writeEmbedded(gltfModel, outFile)
     }
 
+    private fun flattenNodes(nodes: List<NodeModel>): List<NodeModel> {
+        val res = ArrayList<NodeModel>()
+        fun processNode(outList:ArrayList<NodeModel>,node: NodeModel){
+            outList.add(node)
+            node.children.forEach {
+                processNode(outList,it)
+            }
+        }
+        nodes.forEach{ processNode(res,it) }
+        return  res
+    }
+
+
+    private fun createCameraAnimation(cameraLocationHolder: OrbFrameInfoHolder, node: DefaultNodeModel): AnimationModel {
+        val allTransformMatrix = cameraLocationHolder.cameraTransformMatrixList
+        val decomposedTransforms = allTransformMatrix
+            .map {
+                var glMatrix:FloatArray? = null
+                if(it == null){
+                    glMatrix = FloatArray(16)
+                    android.opengl.Matrix.setIdentityM(glMatrix,0)
+                }
+                else{
+                    glMatrix = it.toGlMatrix()
+                }
+                val glTwc = FloatArray(16)
+                android.opengl.Matrix.invertM(glTwc, 0, glMatrix, 0)
+                val decomposition:MatrixDecomposition = MathHelpers.decomposeGlMatrix(glTwc)
+                return@map decomposition
+            }
+
+        val model = DefaultAnimationModel()
+        val animationChannels = createAnimationChannels(node,decomposedTransforms,30.01f)
+        animationChannels.forEach {
+            model.addChannel(it)
+        }
+        return model
+    }
+    private fun createAnimationChannels(node: DefaultNodeModel, transforms: List<MatrixDecomposition>, fps: Float): Array<AnimationModel.Channel> {
+        val timeCount = transforms.size
+        val timeBuffer = ByteBuffer.allocate(timeCount * Float.SIZE_BYTES)
+            .order(ByteOrder.nativeOrder())
+        val frameTime = 1/fps
+        (0 until timeCount).forEach{
+            timeBuffer.putFloat(it.toFloat()*frameTime)
+        }
+        timeBuffer.flip()
+        val inputAccessor = DefaultAccessorModel(GltfConstants.GL_FLOAT, timeCount, ElementType.SCALAR)
+        inputAccessor.accessorData = AccessorDatas.create(inputAccessor, timeBuffer)
+        val translationChannel = createPositionChannel(node,transforms,inputAccessor)
+        val rotationChannel = createRotationChannel(node,transforms,inputAccessor)
+        val scaleChannel = createScaleChannel(node,transforms,inputAccessor)
+        return arrayOf(translationChannel,rotationChannel,scaleChannel)
+    }
+
+
+    private fun createPositionChannel(node: NodeModel,transforms: List<MatrixDecomposition>,inputAccessor: DefaultAccessorModel): AnimationModel.Channel {
+        val outputBuffer = ByteBuffer.allocate(transforms.size * Float.SIZE_BYTES * 3)
+            .order(ByteOrder.nativeOrder())
+        (transforms.indices).forEach {
+            val pos = transforms[it].translation
+            outputBuffer.putFloat(pos.x)
+            outputBuffer.putFloat(pos.y)
+            outputBuffer.putFloat(pos.z)
+        }
+        outputBuffer.flip()
+        return createOutputChannel(GltfConstants.GL_FLOAT,outputBuffer,transforms.size,ElementType.VEC3,inputAccessor,"translation",node)
+    }
+    private fun createRotationChannel(
+        node: DefaultNodeModel,
+        transforms: List<MatrixDecomposition>,
+        inputAccessor: DefaultAccessorModel
+    ): AnimationModel.Channel {
+        val outputBuffer = ByteBuffer.allocate(transforms.size * Float.SIZE_BYTES * 4)
+            .order(ByteOrder.nativeOrder())
+        (transforms.indices).forEach {
+            val rotation = transforms[it].rotation
+            outputBuffer.putFloat(rotation.x)
+            outputBuffer.putFloat(rotation.y)
+            outputBuffer.putFloat(rotation.z)
+            outputBuffer.putFloat(rotation.w)
+        }
+        outputBuffer.flip()
+        return createOutputChannel(GltfConstants.GL_FLOAT,outputBuffer,transforms.size,ElementType.VEC4,inputAccessor,"rotation",node)
+    }
+
+    private fun createScaleChannel(
+        node: DefaultNodeModel,
+        transforms: List<MatrixDecomposition>,
+        inputAccessor: DefaultAccessorModel
+    ): AnimationModel.Channel {
+        val outputBuffer = ByteBuffer.allocate(transforms.size * Float.SIZE_BYTES * 3)
+            .order(ByteOrder.nativeOrder())
+        (transforms.indices).forEach {
+            val rotation = transforms[it].scale
+            outputBuffer.putFloat(rotation.x)
+            outputBuffer.putFloat(rotation.y)
+            outputBuffer.putFloat(rotation.z)
+        }
+        outputBuffer.flip()
+        return createOutputChannel(GltfConstants.GL_FLOAT,outputBuffer,transforms.size,ElementType.VEC3,inputAccessor,"scale",node)
+    }
+    private fun createOutputChannel(componentType:Int,
+                                    buffer:ByteBuffer,
+                                    elementCount:Int,
+                                    elementType:ElementType,
+                                    inputAccessor:DefaultAccessorModel,
+                                    channelName:String,
+                                    node:NodeModel): DefaultChannel {
+        val outputAccessor = DefaultAccessorModel(componentType, elementCount, elementType)
+        outputAccessor.accessorData = AccessorDatas.create(outputAccessor, buffer)
+        val sampler =DefaultSampler(inputAccessor, AnimationModel.Interpolation.STEP, outputAccessor)
+        return DefaultChannel(sampler, node, channelName)
+    }
     private fun getNodesFromObjects(context: SceneContext): List<DefaultNodeModel> {
         val sceneObjects = context.sceneObjectContainer.objects
         val nodes = sceneObjects.map { obj -> getNode(context, null, obj) }
@@ -104,8 +227,6 @@ class SceneExporter (val cameraLocationHolder: OrbFrameInfoHolder,val cameraCali
                 val cameraModel = CameraUtils.getGltfCameraParameters(cameraCalibration.x,cameraCalibration.h,cameraCalibration.fx,cameraCalibration.fy,cameraCalibration.cx,cameraCalibration.cy,0.001,1000.0)
                 cameraPerspectiveModel= cameraModel
             }
-        }
-        if(obj.name == "cameraRoot"){
         }
 
         val children = obj.children.map {

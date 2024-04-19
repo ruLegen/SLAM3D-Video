@@ -15,6 +15,9 @@ class OrbFrameInfoHolder(frameCount:Int) {
     var frameCount:Int = frameCount
         private set
 
+    val cameraTransformMatrixList
+        get() = ArrayList(tcwList.toMutableList().takeIf { it != null })
+
     private var tcwList : Array<MatShared?> = Array(frameCount){null}
     private var keyPoints: Array<List<KeyPoint>?> = Array(frameCount){null}
 

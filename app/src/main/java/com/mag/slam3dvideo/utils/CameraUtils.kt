@@ -1,5 +1,10 @@
 package com.mag.slam3dvideo.utils
 
+import de.javagl.jgltf.impl.v2.CameraPerspective
+import kotlin.math.PI
+import kotlin.math.atan
+
+data class GlTFCameraParameters()
 object CameraUtils {
     fun getProjectionMatrix(w:Double, h:Double, fu:Double, fv:Double, u0:Double, v0:Double, zNear:Double, zFar:Double):DoubleArray{
         val res = DoubleArray(16)           // column major GL matrix
@@ -18,5 +23,25 @@ object CameraUtils {
 
         res[3*4+2] =  (2*zFar*zNear)/(zNear - zFar);
         return res;
+    }
+    fun getGltfCameraParameters(w:Double, h:Double, fu:Double, fv:Double, u0:Double, v0:Double, zNear:Double, zFar:Double) : CameraPerspective {
+        val L = -(u0) * zNear / fu;
+        val R = +(w-u0) * zNear / fu;
+        val T = -(v0) * zNear / fv;
+        val B = +(h-v0) * zNear / fv;
+
+        //https://stackoverflow.com/a/46195462
+        val mat00 = 2 * zNear / (R-L)
+        val mat11 = 2 * zNear / (T-B)
+        val fovY = 2.0 * atan(1.0/mat11) * 180.0 / PI
+        val aspect = mat11 / mat00
+
+
+        val cameraParams =  CameraPerspective()
+        cameraParams.aspectRatio = aspect.toFloat()
+        cameraParams.yfov = fovY.toFloat()
+        cameraParams.zfar = zFar.toFloat()
+        cameraParams.znear = zNear.toFloat()
+        return  cameraParams
     }
 }

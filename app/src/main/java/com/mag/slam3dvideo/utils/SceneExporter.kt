@@ -8,6 +8,7 @@ import com.mag.slam3dvideo.render.SceneObject
 import com.mag.slam3dvideo.render.components.MeshRendererComponent
 import com.mag.slam3dvideo.render.mesh.DynamicMesh
 import com.mag.slam3dvideo.scenes.objectscene.CameraCallibration
+import de.javagl.jgltf.impl.v2.Camera
 import de.javagl.jgltf.model.AccessorDatas
 import de.javagl.jgltf.model.ElementType
 import de.javagl.jgltf.model.GltfConstants

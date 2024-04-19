@@ -105,6 +105,8 @@ class SceneExporter (val cameraLocationHolder: OrbFrameInfoHolder,val cameraCali
                 cameraPerspectiveModel= cameraModel
             }
         }
+        if(obj.name == "cameraRoot"){
+        }
 
         val children = obj.children.map {
             getNode(context, node, it)

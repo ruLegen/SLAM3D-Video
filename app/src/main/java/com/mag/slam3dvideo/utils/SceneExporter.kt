@@ -3,6 +3,7 @@ package com.mag.slam3dvideo.utils
 import android.util.Log
 import com.google.android.filament.RenderableManager
 import com.google.android.filament.VertexBuffer
+import com.google.android.filament.utils.perspective
 import com.mag.slam3dvideo.render.SceneContext
 import com.mag.slam3dvideo.render.SceneObject
 import com.mag.slam3dvideo.render.components.MeshRendererComponent
@@ -10,12 +11,15 @@ import com.mag.slam3dvideo.render.mesh.DynamicMesh
 import com.mag.slam3dvideo.scenes.objectscene.CameraCallibration
 import de.javagl.jgltf.impl.v2.Camera
 import de.javagl.jgltf.model.AccessorDatas
+import de.javagl.jgltf.model.CameraModel
+import de.javagl.jgltf.model.CameraPerspectiveModel
 import de.javagl.jgltf.model.ElementType
 import de.javagl.jgltf.model.GltfConstants
 import de.javagl.jgltf.model.GltfModel
 import de.javagl.jgltf.model.creation.GltfModelBuilder
 import de.javagl.jgltf.model.creation.MeshPrimitiveBuilder
 import de.javagl.jgltf.model.impl.DefaultAccessorModel
+import de.javagl.jgltf.model.impl.DefaultCameraModel
 import de.javagl.jgltf.model.impl.DefaultMeshModel
 import de.javagl.jgltf.model.impl.DefaultNodeModel
 import de.javagl.jgltf.model.impl.DefaultSceneModel
@@ -24,9 +28,8 @@ import java.io.File
 import java.nio.ByteBuffer
 
 
-object SceneExporter {
-
-    fun export(sceneContext: SceneContext,cameraLocationHolder: OrbFrameInfoHolder,cameraCallibration: CameraCallibration) {
+class SceneExporter (val cameraLocationHolder: OrbFrameInfoHolder,val cameraCalibration: CameraCallibration) {
+    fun export(sceneContext: SceneContext) {
         val scene = DefaultSceneModel()
         val nodes: List<DefaultNodeModel> = getNodesFromObjects(sceneContext)
         nodes.forEach {
@@ -95,6 +98,13 @@ object SceneExporter {
             node.addMeshModel(gltfMesh)
         }
 
+//        val cameraComponent = null
+        if(obj.name == "cameraObj"){
+            node.cameraModel = DefaultCameraModel().apply {
+                val cameraModel = CameraUtils.getGltfCameraParameters(cameraCalibration.x,cameraCalibration.h,cameraCalibration.fx,cameraCalibration.fy,cameraCalibration.cx,cameraCalibration.cy,0.001,1000.0)
+                cameraPerspectiveModel= cameraModel
+            }
+        }
 
         val children = obj.children.map {
             getNode(context, node, it)

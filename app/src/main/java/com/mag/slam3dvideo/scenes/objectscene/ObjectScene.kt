@@ -216,7 +216,7 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
     }
 
     fun export(cameraLocationHolder: OrbFrameInfoHolder) {
-        SceneExporter.export(sceneContext,cameraLocationHolder,cameraCallibration)
+        SceneExporter(cameraLocationHolder,cameraCallibration).export(sceneContext)
     }
 
 }

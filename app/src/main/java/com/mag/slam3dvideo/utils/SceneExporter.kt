@@ -6,6 +6,7 @@ import com.google.android.filament.VertexBuffer
 import com.mag.slam3dvideo.render.SceneContext
 import com.mag.slam3dvideo.render.SceneObject
 import com.mag.slam3dvideo.render.components.MeshRendererComponent
+import com.mag.slam3dvideo.render.mesh.DynamicMesh
 import de.javagl.jgltf.model.AccessorDatas
 import de.javagl.jgltf.model.ElementType
 import de.javagl.jgltf.model.GltfConstants
@@ -20,9 +21,6 @@ import de.javagl.jgltf.model.impl.DefaultSceneModel
 import de.javagl.jgltf.model.io.GltfModelWriter
 import java.io.File
 import java.nio.ByteBuffer
-import java.nio.ByteOrder
-
-
 
 
 object SceneExporter {
@@ -60,7 +58,11 @@ object SceneExporter {
         val meshRenderer = obj.getComponent<MeshRendererComponent>()
         val objMesh = meshRenderer?.getMesh()
         if (objMesh != null) {
-            val vertexCount  = objMesh.vertexCount
+            val dynamicMesh = objMesh as? DynamicMesh
+
+            val vertexCount  = dynamicMesh?.currentVertexSize ?: objMesh.vertexCount
+            val indexCount = dynamicMesh?.currentIndicesSize?:objMesh.indicesCount
+
             val vertexData = objMesh.getVertexDataBuffer()
             val indexBuffer = objMesh.getIndexDataBuffer()
 //            val indexBuffer = ByteBuffer.allocateDirect(vertexCount*Short.SIZE_BYTES)
@@ -76,7 +78,8 @@ object SceneExporter {
                 RenderableManager.PrimitiveType.TRIANGLES -> meshPrimitiveBuilder.setTriangles()
                 else -> {}
             }
-            val indicesAccessor = AccessorModels.create(GltfConstants.GL_UNSIGNED_SHORT,ElementType.SCALAR.name,false,indexBuffer as ByteBuffer)
+            val indicesAccessor = DefaultAccessorModel(GltfConstants.GL_UNSIGNED_SHORT, indexCount, ElementType.SCALAR)
+            indicesAccessor.accessorData = AccessorDatas.create(indicesAccessor, indexBuffer as ByteBuffer)
             meshPrimitiveBuilder.setIndices(indicesAccessor)
             attributes.forEach {
                 val name = it.attribute.name

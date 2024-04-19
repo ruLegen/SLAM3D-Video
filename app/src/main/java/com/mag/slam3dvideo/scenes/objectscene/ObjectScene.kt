@@ -20,6 +20,7 @@ import com.mag.slam3dvideo.orb3.Plane
 import com.mag.slam3dvideo.resources.StaticMeshes
 import com.mag.slam3dvideo.scenes.OrbScene
 import com.mag.slam3dvideo.utils.CameraUtils
+import com.mag.slam3dvideo.utils.OrbFrameInfoHolder
 import com.mag.slam3dvideo.utils.SceneExporter
 import org.opencv.core.Mat.Tuple3
 
@@ -214,8 +215,8 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
         sceneContext.addPointsToCameraTrajectory(arrayListOf(Tuple3<Float>(x,y,z)))
     }
 
-    fun export() {
-        SceneExporter.export(sceneContext)
+    fun export(cameraLocationHolder: OrbFrameInfoHolder) {
+        SceneExporter.export(sceneContext,cameraLocationHolder,cameraCallibration)
     }
 
 }

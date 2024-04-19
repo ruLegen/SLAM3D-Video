@@ -144,8 +144,8 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
         sceneObjectContainer.addObject(boxRoot)
         sceneObjectContainer.addObject(cameraObjRoot)
         sceneObjectContainer.addObject(gizmo)
-//        sceneObjectContainer.addObject(pointCloud)
-//        sceneObjectContainer.addObject(cameraTrajectory)
+        sceneObjectContainer.addObject(pointCloud)
+        sceneObjectContainer.addObject(cameraTrajectory)
     }
     fun setBoxTransform(matrix:FloatArray){
         boxRoot.transformComponent.setTransform(this,matrix)

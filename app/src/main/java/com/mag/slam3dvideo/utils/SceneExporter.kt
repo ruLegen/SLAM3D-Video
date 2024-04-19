@@ -7,11 +7,11 @@ import com.mag.slam3dvideo.render.SceneContext
 import com.mag.slam3dvideo.render.SceneObject
 import com.mag.slam3dvideo.render.components.MeshRendererComponent
 import com.mag.slam3dvideo.render.mesh.DynamicMesh
+import com.mag.slam3dvideo.scenes.objectscene.CameraCallibration
 import de.javagl.jgltf.model.AccessorDatas
 import de.javagl.jgltf.model.ElementType
 import de.javagl.jgltf.model.GltfConstants
 import de.javagl.jgltf.model.GltfModel
-import de.javagl.jgltf.model.creation.AccessorModels
 import de.javagl.jgltf.model.creation.GltfModelBuilder
 import de.javagl.jgltf.model.creation.MeshPrimitiveBuilder
 import de.javagl.jgltf.model.impl.DefaultAccessorModel
@@ -25,7 +25,7 @@ import java.nio.ByteBuffer
 
 object SceneExporter {
 
-    fun export(sceneContext: SceneContext) {
+    fun export(sceneContext: SceneContext,cameraLocationHolder: OrbFrameInfoHolder,cameraCallibration: CameraCallibration) {
         val scene = DefaultSceneModel()
         val nodes: List<DefaultNodeModel> = getNodesFromObjects(sceneContext)
         nodes.forEach {
@@ -65,10 +65,7 @@ object SceneExporter {
 
             val vertexData = objMesh.getVertexDataBuffer()
             val indexBuffer = objMesh.getIndexDataBuffer()
-//            val indexBuffer = ByteBuffer.allocateDirect(vertexCount*Short.SIZE_BYTES)
-//            (0 until vertexCount).map {
-//                indexBuffer.putShort(it.toShort())
-//            }
+
             val attributes = objMesh.attributes
             val gltfMesh = DefaultMeshModel()
             val meshPrimitiveBuilder = MeshPrimitiveBuilder.create()

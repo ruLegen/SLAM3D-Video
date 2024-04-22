@@ -91,6 +91,7 @@ Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nGetCurrentMapPoints(JNIEnv *env,
     auto *processor = reinterpret_cast<SLAMVideo::OrbSlamProcessor*>(ptr);
     if (processor == nullptr)
       return 0;
+    try {
 
     const vector<ORB_SLAM3::MapPoint*> &allMapPoints = processor->GetAllMapPoints();
     const vector<ORB_SLAM3::MapPoint*> &referenceMapPoints = processor->GetReferenceMapPoints();
@@ -116,11 +117,14 @@ Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nGetCurrentMapPoints(JNIEnv *env,
         continue;
       unpackMapPoint(*sit,true,unpackedMapPoints);
     }
-
     jfloatArray floatArray = env->NewFloatArray(unpackedMapPoints.size());
     env->SetFloatArrayRegion(floatArray,0, unpackedMapPoints.size(),
                              unpackedMapPoints.data());
     return floatArray;
+
+    }catch (std::exception ex){
+      return 0;
+    }
 }
 
 extern "C" JNIEXPORT jint

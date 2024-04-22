@@ -19,7 +19,7 @@ class TaskRunner (resultThreadHandler: Handler? = null) {
             if(handler== null)
                 callback?.onComplete(result)
             else
-                handler.post { callback?.onComplete(result) }
+                handler?.post { callback?.onComplete(result) }
         }
     }
 }

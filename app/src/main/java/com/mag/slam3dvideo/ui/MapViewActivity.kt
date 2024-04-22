@@ -115,8 +115,9 @@ class MapViewActivity : AppCompatActivity() {
 
 //  var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20230318_132255477.mp4"
 //  var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240223_143249538.mp4"   // park
-//  var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240409_084554114.mp4"   // outside_dorm
-    var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240414_190423180.mp4"   // face
+//var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240409_084554114.mp4"   // outside_dorm
+    var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240420_123354750.mp4"   // outside_backyard
+//    var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240414_190423180.mp4"   // face
 //  var file: String = "/storage/emulated/0/DCIM/Camera/with_frames.mp4"              // park
 
     private lateinit var surfaceView: SurfaceMediaPlayerControl
@@ -394,14 +395,15 @@ class MapViewActivity : AppCompatActivity() {
                 shouldRegenPlane = false
                 plane = orbProcessor.detectPlane()
                 objectScene.setPlane(plane)
-                i++
-            } else {
-                i++
             }
+            i++
             val keys = orbProcessor.getCurrentFrameKeyPoints()
             orbFrameInfoHolder.setKeypointsAtFrame(frameNumber, keys)
-            val mapPoints = orbProcessor.getCurrentMapPoints()
-            objectScene.setMapPoints(mapPoints)
+
+            if(i%10 == 0){       // every 3 frame get map points
+                val mapPoints = orbProcessor.getCurrentMapPoints()
+                objectScene.setMapPoints(mapPoints)
+            }
             objectScene.updateCameraTrajectory(tcw)
             if(isEditMode)
                 objectScene.setCameraObjectTransform(tcw)

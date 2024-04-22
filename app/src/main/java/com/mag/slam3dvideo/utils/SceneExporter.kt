@@ -1,6 +1,7 @@
 package com.mag.slam3dvideo.utils
 
 import android.util.Log
+import androidx.arch.core.executor.TaskExecutor
 import com.google.android.filament.RenderableManager
 import com.google.android.filament.VertexBuffer
 import com.mag.slam3dvideo.math.toGlMatrix
@@ -26,33 +27,50 @@ import de.javagl.jgltf.model.impl.DefaultMeshModel
 import de.javagl.jgltf.model.impl.DefaultNodeModel
 import de.javagl.jgltf.model.impl.DefaultSceneModel
 import de.javagl.jgltf.model.io.GltfModelWriter
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.launch
 import java.io.File
+import java.lang.Exception
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
-
+private object Exporter{
+}
 class SceneExporter (val cameraLocationHolder: OrbFrameInfoHolder,val cameraCalibration: CameraCallibration) {
+
+    companion object{
+        val executor= TaskRunner()
+    }
     fun export(sceneContext: SceneContext) {
-        val scene = DefaultSceneModel()
-        val nodes: List<DefaultNodeModel> = getNodesFromObjects(sceneContext)
-        nodes.forEach {
-            scene.addNode(it)
+        try {
+            val scene = DefaultSceneModel()
+            val nodes: List<DefaultNodeModel> = getNodesFromObjects(sceneContext)
+            nodes.forEach {
+                scene.addNode(it)
+            }
+
+            val gltfModelBuilder = GltfModelBuilder.create()
+            gltfModelBuilder.addSceneModel(scene)
+
+            val cameraRoot = flattenNodes(nodes).find { it.name == "cameraRoot" }
+            if(cameraRoot != null){
+                val animationModel = createCameraAnimation(cameraLocationHolder,cameraRoot as DefaultNodeModel)
+                gltfModelBuilder.addAnimationModel(animationModel)
+            }
+            executor.executeAsync({
+                try {
+                    val gltfModel: GltfModel? = gltfModelBuilder.build()
+                    val outFile = File.createTempFile("gltf_", ".gltf")
+                    Log.d("DEBUG", outFile.absolutePath);
+                    val gltfModelWriter = GltfModelWriter()
+                    gltfModelWriter.writeEmbedded(gltfModel,outFile)
+                }catch (ex:Exception){
+                    Log.e("EXPORT_ERROR",ex.message.toString())
+                }
+            })
+        }catch (exx:Exception){
+            Log.e("EXPORT_ERROR_out",exx.message.toString())
         }
-
-        val gltfModelBuilder = GltfModelBuilder.create()
-        gltfModelBuilder.addSceneModel(scene)
-
-        val cameraRoot = flattenNodes(nodes).find { it.name == "cameraRoot" }
-        if(cameraRoot != null){
-            val animationModel = createCameraAnimation(cameraLocationHolder,cameraRoot as DefaultNodeModel)
-            gltfModelBuilder.addAnimationModel(animationModel)
-        }
-        val gltfModel: GltfModel? = gltfModelBuilder.build()
-
-        val outFile = File.createTempFile("gltf_", ".gltf")
-        Log.d("DEBUG", outFile.absolutePath);
-        val gltfModelWriter = GltfModelWriter()
-        gltfModelWriter.writeEmbedded(gltfModel, outFile)
     }
 
     private fun flattenNodes(nodes: List<NodeModel>): List<NodeModel> {
@@ -98,8 +116,8 @@ class SceneExporter (val cameraLocationHolder: OrbFrameInfoHolder,val cameraCali
         val timeBuffer = ByteBuffer.allocate(timeCount * Float.SIZE_BYTES)
             .order(ByteOrder.nativeOrder())
         val frameTime = 1/fps
-        (0 until timeCount).forEach{
-            timeBuffer.putFloat(it.toFloat()*frameTime)
+        (0 until    timeCount).forEach{
+            timeBuffer.putFloat((it+1)*frameTime)
         }
         timeBuffer.flip()
         val inputAccessor = DefaultAccessorModel(GltfConstants.GL_FLOAT, timeCount, ElementType.SCALAR)

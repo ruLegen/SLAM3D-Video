@@ -1,21 +1,44 @@
 package com.mag.slam3dvideo.utils
 
-import android.util.Log
-import android.util.Size
+import com.charleskorn.kaml.Yaml
 import com.mag.slam3dvideo.orb3.TrackingState
+import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.Serializer
+import kotlinx.serialization.UseSerializers
+import kotlinx.serialization.descriptors.PrimitiveKind
+import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
+import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encoding.Decoder
+import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
 import java.io.File
+import java.lang.Exception
 import java.util.ArrayList
 import kotlin.time.Duration
 import kotlin.time.measureTimedValue
-
-data class OrbFrameResult(val state: TrackingState)
+object OrbSlamSettingsAsStringSerializer : KSerializer<OrbSlamSettings> {
+    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("settings", PrimitiveKind.STRING)
+    override fun serialize(encoder: Encoder, value: OrbSlamSettings) {
+        val string = Yaml.default.encodeToString(OrbSlamSettings.serializer(),value)
+        encoder.encodeString(string)
+    }
+    override fun deserialize(decoder: Decoder): OrbSlamSettings {
+        val string = decoder.decodeString()
+        return try {
+            Yaml.default.decodeFromString(OrbSlamSettings.serializer(), string)
+        } catch (ex: Exception) {
+            OrbSlamSettings()
+        }
+    }
+}data class OrbFrameResult(val state: TrackingState)
 @Serializable
 data class OrbFrameMeasurement(val duration: Duration, val state: TrackingState)
 @Serializable
-data class OrbJsonStruct(val settings: OrbSlamSettings,val frameCount: Int,val fps:Float,val measurements:Array<OrbFrameMeasurement>)
+data class OrbJsonStruct(@Serializable(with = OrbSlamSettingsAsStringSerializer::class) val settings: OrbSlamSettings,
+                         val frameCount: Int,
+                         val fps:Float,
+                         val measurements:Array<OrbFrameMeasurement>)
 
 class OrbMetricMeasurer {
     private val frameMeasurements = ArrayList<OrbFrameMeasurement>()

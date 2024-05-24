@@ -1,18 +1,34 @@
 package com.mag.slam3dvideo.orb3
 
 import android.graphics.Bitmap
+import com.charleskorn.kaml.Yaml
 import com.mag.slam3dvideo.math.MatShared
+import com.mag.slam3dvideo.utils.FileUtils
+import com.mag.slam3dvideo.utils.OrbSlamSettings
+import kotlinx.serialization.decodeFromString
 import org.opencv.core.KeyPoint
+import java.io.File
+import java.io.InputStream
 import java.lang.RuntimeException
 
 data class MapPoint(val x:Float,val y:Float,val z:Float,val isReferenced:Boolean)
-class OrbSlamProcessor(vocabFileName: String, configFileName: String) {
+class OrbSlamProcessor() {
     var ptr: Long = 0;
     init {
         System.loadLibrary("orbvideoslam")
+
     }
-    init {
+    constructor(vocabFileName: String, configFileName: String) : this() {
         ptr = nInitOrb(vocabFileName, configFileName);
+    }
+    constructor(vocabFileName: String, settings:OrbSlamSettings):this(){
+        val serialized = Yaml.default.encodeToString(OrbSlamSettings.serializer(),settings)
+        val opencv  = "%YAML:1.0\n".plus(serialized)
+        val file = File.createTempFile("setting_",".yaml")
+        file.writeText(opencv)
+        val filePath = file.absolutePath
+        ptr = nInitOrb(vocabFileName,filePath)
+        file.delete()
     }
     fun processFrame(bitmap: Bitmap): MatShared? {
         val tcwMatrix = nProcessBitmap(ptr, bitmap)

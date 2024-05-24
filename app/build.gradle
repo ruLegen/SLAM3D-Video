@@ -2,7 +2,9 @@ plugins {
     id 'com.android.application'
     id 'org.jetbrains.kotlin.android'
     id 'kotlin-kapt'
+    id 'org.jetbrains.kotlin.plugin.serialization'
 
+//    id 'plugin.serialization'
 //    id 'filament-tools-plugin'
 }
 
@@ -80,6 +82,9 @@ dependencies {
     implementation files('libs/jgltf-impl-v2-2.0.4-SNAPSHOT.jar')
     implementation files('libs/jgltf-model-2.0.4-SNAPSHOT.jar')
     implementation files('libs/jgltf-model-builder-2.0.4-SNAPSHOT.jar')
+
+    implementation "com.charleskorn.kaml:kaml:0.59.0"
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
     implementation 'com.github.sephiroth74:AndroidUIGestureRecognizer:1.3.1'
     implementation 'com.github.mokiat:java-data-front:2.0.1'

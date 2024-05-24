@@ -5,14 +5,12 @@
     android:background="@color/black">
 
     <data>
-
         <variable
             name="vm"
             type="com.mag.slam3dvideo.videmodels.VideoViewerViewModel" />
     </data>
 
     <FrameLayout
-
         android:layout_width="match_parent"
         android:layout_height="match_parent"
         android:layout_marginBottom="12dp"
@@ -48,19 +46,16 @@
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:paddingBottom="0dp">
-
             <FrameLayout
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="6">
-
                 <VideoView
                     android:id="@+id/videoView"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent"
                     android:layout_gravity="center"/>
             </FrameLayout>
-
             <FrameLayout
                 android:id="@+id/frameLayout"
                 android:layout_width="match_parent"
@@ -68,12 +63,10 @@
                 android:layout_marginHorizontal="24dp"
                 android:layout_weight="1"
                 android:orientation="vertical">
-
                 <com.mag.slam3dvideo.ui.components.VideoTimelineView
                     android:id="@+id/timeline"
                     android:layout_width="match_parent"
                     android:layout_height="match_parent" />
-
                 <com.mag.slam3dvideo.ui.components.TimeHintView
                     android:id="@+id/timeHint"
                     android:layout_width="match_parent"

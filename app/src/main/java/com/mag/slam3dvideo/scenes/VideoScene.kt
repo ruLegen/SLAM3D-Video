@@ -175,7 +175,7 @@ class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF ) : Orb
 
     override fun render(renderer: Renderer) {
         if(isEnabled)
-        renderer.render(view)
+            renderer.render(view)
     }
 
 

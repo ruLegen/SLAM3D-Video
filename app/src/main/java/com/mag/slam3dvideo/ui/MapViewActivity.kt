@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.InputType
+import android.util.Size
 import android.view.Choreographer
 import android.view.Surface
 import android.view.WindowManager
@@ -29,6 +30,7 @@ import com.google.android.filament.filamat.MaterialBuilder
 import com.google.android.filament.utils.Utils
 import com.mag.slam3dvideo.R
 import com.mag.slam3dvideo.databinding.ActivityMapViewBinding
+import com.mag.slam3dvideo.math.MatShared
 import com.mag.slam3dvideo.orb3.OrbSlamProcessor
 import com.mag.slam3dvideo.orb3.Plane
 import com.mag.slam3dvideo.orb3.TrackingState
@@ -42,6 +44,9 @@ import com.mag.slam3dvideo.ui.components.SurfaceMediaPlayerControl
 import com.mag.slam3dvideo.utils.AssetUtils
 import com.mag.slam3dvideo.utils.BufferQueue
 import com.mag.slam3dvideo.utils.OrbFrameInfoHolder
+import com.mag.slam3dvideo.utils.OrbFrameResult
+import com.mag.slam3dvideo.utils.OrbSlamSettings
+import com.mag.slam3dvideo.utils.OrbMetricMeasurer
 import com.mag.slam3dvideo.utils.TaskRunner
 import com.mag.slam3dvideo.utils.video.SpeedControlCallback
 import com.mag.slam3dvideo.utils.video.VideoDecoder
@@ -97,6 +102,7 @@ class MapViewActivity : AppCompatActivity() {
     }
 
 
+    private var isMetricDumped: Boolean = false
     private var isEditMode: Boolean = false
     private var mFrameOffset: Int = 0
     private var shouldRegenPlane: Boolean = false
@@ -105,6 +111,7 @@ class MapViewActivity : AppCompatActivity() {
     private lateinit var videoDecoder: VideoDecoder
     private lateinit var binding: ActivityMapViewBinding
     private lateinit var infoText: TextView
+    private val orbMetricMeasurer: OrbMetricMeasurer = OrbMetricMeasurer()
     private var plane: Plane? = null
 
     private lateinit var orbProcessor: OrbSlamProcessor
@@ -113,10 +120,10 @@ class MapViewActivity : AppCompatActivity() {
     private var frameProcessorTaskRunner: TaskRunner? = null
     private var imagePreviewTaskRunner: TaskRunner? = null
 
-//  var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20230318_132255477.mp4"
+    //  var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20230318_132255477.mp4"
 //  var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240223_143249538.mp4"   // park
-//var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240409_084554114.mp4"   // outside_dorm
-    var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240420_123354750.mp4"   // outside_backyard
+var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240409_084554114.mp4"   // outside_dorm
+    //var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240420_123354750.mp4"   // outside_backyard
 //    var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240414_190423180.mp4"   // face
 //  var file: String = "/storage/emulated/0/DCIM/Camera/with_frames.mp4"              // park
 
@@ -148,6 +155,9 @@ class MapViewActivity : AppCompatActivity() {
 
         binding = ActivityMapViewBinding.inflate(layoutInflater)
         isEditMode = binding.editModeCheckBox.isChecked
+        binding.exportMetrics.setOnClickListener{
+            dumpMetrics()
+        }
         binding.exportScene.setOnClickListener {
             objectScene.export(orbFrameInfoHolder)
         }
@@ -185,10 +195,16 @@ class MapViewActivity : AppCompatActivity() {
         }
     }
 
+    private fun dumpMetrics() {
+        val prefix = file.split("/").last()
+        val file = File.createTempFile("metric","${prefix}.json")
+        orbMetricMeasurer.dumpToFile(file)
+    }
+
     private fun setEditMode(editMode: Boolean) {
         isEditMode = editMode
         objectScene.setEditMode(isEditMode)
-        if(isEditMode)
+        if (isEditMode)
             decoderSpeedControlCallback.pause()
     }
 
@@ -294,16 +310,15 @@ class MapViewActivity : AppCompatActivity() {
 
         setInfoText("Initializing OrbSlamProcessor")
         val orbAssets = AssetUtils.getOrbFileAssets(this)
-        orbProcessor = OrbSlamProcessor(orbAssets.vocabFile, orbAssets.configFile)
+        val orbSettings = OrbSlamSettings()
+        orbProcessor = OrbSlamProcessor(orbAssets.vocabFile, orbSettings)
         videoRetriever!!.initialize()
 
         setupScenes()
-
         decoderSpeedControlCallback = SpeedControlCallback(object : VideoPlaybackCallback {
-            override fun preRender(progress: Long) {
+            override fun preRender(progres: Long) {
 //                Log.d("speed", "$progress")
             }
-
             override fun postRender() {
             }
         })
@@ -329,11 +344,15 @@ class MapViewActivity : AppCompatActivity() {
             }
         })
 
-
         surfaceControlCallback = SurfaceControlCallback(videoDecoder, decoderSpeedControlCallback)
         surfaceView.mediaControlCallback = surfaceControlCallback
 
-        orbFrameInfoHolder = OrbFrameInfoHolder(videoRetriever!!.frameCount.toInt())
+        val frameCount = videoRetriever!!.frameCount.toInt()
+        val fps = videoRetriever!!.capturedFps
+        val videoSize = videoRetriever!!.frameSize
+        orbMetricMeasurer.trackVideoInfo(orbSettings,frameCount,fps)
+
+        orbFrameInfoHolder = OrbFrameInfoHolder(frameCount)
         imagePreviewTaskRunner = TaskRunner()
         imageDecoderTaskRunner = TaskRunner().apply {
             executeAsync({ decodeFrame(0) })
@@ -387,9 +406,21 @@ class MapViewActivity : AppCompatActivity() {
         }
         if (channels == -1)
             throw Exception("Unsupported bitmap mode ${bitmap.config}")
-        val tcw = orbProcessor.processFrame(bitmap)
+        var tcw: MatShared? = null
+        var state: TrackingState = TrackingState.UNKNOWN
+        orbMetricMeasurer.measureProcessFrame {
+            tcw = orbProcessor.processFrame(bitmap)
+            state = orbProcessor.getTrackingState()
+            return@measureProcessFrame OrbFrameResult(state)
+        }
+
+        val isAlmostEnd = Math.abs(bitmapItem.frameNumber - (videoRetriever?.frameCount ?: 0)) < 2
+        if(isAlmostEnd && !isMetricDumped)
+        {
+            dumpMetrics()
+            isMetricDumped = true
+        }
         orbFrameInfoHolder.setCameraPosAtFrame(frameNumber, tcw)
-        val state = orbProcessor.getTrackingState()
         if (state == TrackingState.OK) {
             if (i == 15 || shouldRegenPlane) {
                 shouldRegenPlane = false
@@ -400,18 +431,14 @@ class MapViewActivity : AppCompatActivity() {
             val keys = orbProcessor.getCurrentFrameKeyPoints()
             orbFrameInfoHolder.setKeypointsAtFrame(frameNumber, keys)
 
-            if(i%10 == 0){       // every 3 frame get map points
+            if (i % 10 == 0) {       // every 3 frame get map points
                 val mapPoints = orbProcessor.getCurrentMapPoints()
                 objectScene.setMapPoints(mapPoints)
             }
             objectScene.updateCameraTrajectory(tcw)
-            if(isEditMode)
+            if (isEditMode)
                 objectScene.setCameraObjectTransform(tcw)
         }
-
-//        keypointsScene.drawingRect = videoScene.drawingRect
-//        keypointsScene.setBitmapInfo(videoScene.bitmapStretch, videoScene.bitmapSize)
-//        Log.d("DECODER", "Decoded ${frameNumber}/${videoRetriever?.frameCount}")
         setInfoText("Decoded $frameNumber/${videoRetriever?.frameCount} | State = $state")
         frameBufferQueue.releaseConsumedBuffer(decodedBitmap)
         frameProcessorTaskRunner?.executeAsync({
@@ -466,7 +493,7 @@ class MapViewActivity : AppCompatActivity() {
     }
 
     fun allScenes(): Array<OrbScene> {
-        return arrayOf(videoScene,objectScene/*keypointsScene*/)
+        return arrayOf(videoScene, objectScene/*keypointsScene*/)
     }
 
     inner class FrameCallback : Choreographer.FrameCallback {
@@ -484,11 +511,10 @@ class MapViewActivity : AppCompatActivity() {
                         it.beforeRender(renderer)
                     }
                     allScenes().forEach {
-                        if(it !is VideoScene)
+                        if (it !is VideoScene)
                             it.render(renderer)
-                        else
-                        {
-                            if(!isEditMode)
+                        else {
+                            if (!isEditMode)
                                 it.render(renderer)
                         }
                     }
@@ -515,7 +541,7 @@ class MapViewActivity : AppCompatActivity() {
             swapChain = engine.createSwapChain(surface, flags)
             renderer.clearOptions = renderer.clearOptions.apply {
                 clear = true
-                clearColor = floatArrayOf( 0.0f, 0.0f, 0.0f, 0.0f )
+                clearColor = floatArrayOf(0.0f, 0.0f, 0.0f, 0.0f)
             }
             displayHelper.attach(renderer, surfaceView.display);
         }

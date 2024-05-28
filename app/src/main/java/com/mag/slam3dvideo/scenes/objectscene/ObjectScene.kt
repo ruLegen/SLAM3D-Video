@@ -17,6 +17,7 @@ import com.mag.slam3dvideo.math.MatShared
 import com.mag.slam3dvideo.math.toGlMatrix
 import com.mag.slam3dvideo.orb3.MapPoint
 import com.mag.slam3dvideo.orb3.Plane
+import com.mag.slam3dvideo.render.mesh.DynamicMeshOf
 import com.mag.slam3dvideo.resources.StaticMeshes
 import com.mag.slam3dvideo.scenes.OrbScene
 import com.mag.slam3dvideo.utils.CameraUtils
@@ -204,16 +205,38 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
         sceneContext.enableSkyBox(editMode)
         sceneContext.setCameraObjectVisibility(isEditMode)
     }
-
-    fun updateCameraTrajectory(tcw: MatShared?) {
-        val glTcw = tcw?.toGlMatrix() ?: return
+    fun setPointVisibility(isVisible:Boolean){
+        sceneContext.setPointVisibility(isVisible)
+    }
+    fun getXYZ(tcw:MatShared?):Tuple3<Float>?{
+        val glTcw = tcw?.toGlMatrix() ?: return null
         val glTwc = FloatArray(16)
         android.opengl.Matrix.invertM(glTwc, 0, glTcw, 0)
         val x = glTwc[12]
         val y = glTwc[13]
         val z = glTwc[14]
-        sceneContext.addPointsToCameraTrajectory(arrayListOf(Tuple3<Float>(x,y,z)))
+        return Tuple3<Float>(x,y,z)
     }
+    fun updateCameraTrajectory(tcw: MatShared?) {
+        val pos = getXYZ(tcw) ?: return
+        sceneContext.addPointsToCameraTrajectory(arrayListOf(pos))
+    }
+    fun updateCameraTrajectory(tcws: List<MatShared?>) {
+        val trajLine = StaticMeshes.getDynamicMesh(2047) as DynamicMeshOf<StaticMeshes.MeshVertex>
+        val vertexes = tcws.map {
+            val pos = getXYZ(it)!!
+            pos
+        }
+        val lastIndex = trajLine.indicies.last()
+        val indices = ShortArray(vertexes.size)
+        for (i in 0 until  vertexes.size)
+            indices[i] = (lastIndex +1 + i).toShort()
+        val lineVertex = vertexes.map { StaticMeshes.MeshVertex(it._0,it._1,it._2, Color.GREEN) }
+        trajLine.addVertices(lineVertex,indices.toList())
+
+        sceneContext.updateTrajectoryMesh(trajLine)
+    }
+
 
     fun export(cameraLocationHolder: OrbFrameInfoHolder) {
         SceneExporter(cameraLocationHolder,cameraCallibration).export(sceneContext)

@@ -94,7 +94,7 @@ class DynamicMeshOf<T>(bufferCount: Int,
         val vertexData = ByteBuffer.allocate(currentVertexSize * vertexSizeInBytes)
             .order(ByteOrder.nativeOrder())
             .also {
-                verticies.forEach { v -> onByteBufferPut(it,v) }
+                verticies.toMutableList().forEach { v -> onByteBufferPut(it,v) }
             }
             .flip()
         return vertexData
@@ -103,7 +103,7 @@ class DynamicMeshOf<T>(bufferCount: Int,
         val indexData = ByteBuffer.allocate(currentIndicesSize * Short.SIZE_BYTES)
             .order(ByteOrder.nativeOrder())
             .also {
-                indicies.forEach { i -> it.putShort(i) }
+                indicies.toMutableList().forEach { i -> it.putShort(i) }
             }
             .flip()
         return indexData

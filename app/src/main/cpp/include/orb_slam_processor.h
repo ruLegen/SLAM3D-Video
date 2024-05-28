@@ -24,6 +24,10 @@ public:
 
   Plane* detectPlane(int iterations);
 
+  bool getMapChanged();
+
+  std::vector<cv::Mat*> GetAllKeyFramePositions();
+
 private:
   ORB_SLAM3::System mOrbSlamSystem;
 };

@@ -172,4 +172,13 @@ class ObjectSceneContext(engine: Engine) : SceneContext(engine) {
         cameraObj.getComponent<MeshRendererComponent>()?.setVisibility(editMode)
         cameraTrajectory.getComponent<MeshRendererComponent>()?.setVisibility(editMode)
     }
+
+    fun setPointVisibility(visible: Boolean) {
+        pointCloud.getComponent<MeshRendererComponent>()?.setVisibility(visible)
+    }
+
+    fun updateTrajectoryMesh(mesh:DynamicMeshOf<StaticMeshes.MeshVertex>) {
+        trajLine =mesh
+        cameraTrajectory.getComponent<MeshRendererComponent>()?.setMesh(trajLine)
+    }
 }

@@ -1,5 +1,6 @@
 package com.mag.slam3dvideo.utils
 
+import android.util.Size
 import com.charleskorn.kaml.Yaml
 import com.mag.slam3dvideo.orb3.TrackingState
 import kotlinx.serialization.KSerializer
@@ -9,6 +10,7 @@ import kotlinx.serialization.UseSerializers
 import kotlinx.serialization.descriptors.PrimitiveKind
 import kotlinx.serialization.descriptors.PrimitiveSerialDescriptor
 import kotlinx.serialization.descriptors.SerialDescriptor
+import kotlinx.serialization.encodeToString
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.json.Json
@@ -17,12 +19,40 @@ import java.lang.Exception
 import java.util.ArrayList
 import kotlin.time.Duration
 import kotlin.time.measureTimedValue
+
 object OrbSlamSettingsAsStringSerializer : KSerializer<OrbSlamSettings> {
-    override val descriptor: SerialDescriptor = PrimitiveSerialDescriptor("settings", PrimitiveKind.STRING)
+    @Serializable
+    data class OrbSlamSettingsJson(
+        val width: Int,
+        val height: Int,
+        val orbFeatureCount: Int,
+        val imageScale: Double,
+        val fx: Double,
+        val fy: Double,
+        val cx: Double,
+        val cy: Double,
+        val k1: Double,
+        val k2: Double
+    )
+
+    override val descriptor: SerialDescriptor =
+        PrimitiveSerialDescriptor("settings", PrimitiveKind.STRING)
+
     override fun serialize(encoder: Encoder, value: OrbSlamSettings) {
-        val string = Yaml.default.encodeToString(OrbSlamSettings.serializer(),value)
-        encoder.encodeString(string)
+        encoder.encodeSerializableValue(OrbSlamSettingsJson.serializer(),OrbSlamSettingsJson(
+            value.newWidth,
+            value.newHeight,
+            value.nFeatures,
+            value.imageScale,
+            value.fx,
+            value.fy,
+            value.cx,
+            value.cy,
+            value.k1,
+            value.k2,
+        ))
     }
+
     override fun deserialize(decoder: Decoder): OrbSlamSettings {
         val string = decoder.decodeString()
         return try {
@@ -31,37 +61,47 @@ object OrbSlamSettingsAsStringSerializer : KSerializer<OrbSlamSettings> {
             OrbSlamSettings()
         }
     }
-}data class OrbFrameResult(val state: TrackingState)
+}
+
+data class OrbFrameResult(val state: TrackingState)
+
 @Serializable
 data class OrbFrameMeasurement(val duration: Duration, val state: TrackingState)
+
 @Serializable
-data class OrbJsonStruct(@Serializable(with = OrbSlamSettingsAsStringSerializer::class) val settings: OrbSlamSettings,
-                         val frameCount: Int,
-                         val fps:Float,
-                         val measurements:Array<OrbFrameMeasurement>)
+data class OrbJsonStruct(
+    @Serializable(with = OrbSlamSettingsAsStringSerializer::class) val settings: OrbSlamSettings,
+    val frameCount: Int,
+    val fps: Float,
+    val measurements: Array<OrbFrameMeasurement>
+)
 
 class OrbMetricMeasurer {
     private val frameMeasurements = ArrayList<OrbFrameMeasurement>()
-    private var settings:OrbSlamSettings? = null
-    private var videoFrameCount:Int = 0
-    private var videoFps:Float = 0f
-    fun trackVideoInfo(orbSlamSettings: OrbSlamSettings,frameCount:Int,fps:Float){
+    private var settings: OrbSlamSettings? = null
+    private var videoFrameCount: Int = 0
+    private var videoFps: Float = 0f
+    fun trackVideoInfo(orbSlamSettings: OrbSlamSettings, frameCount: Int, fps: Float) {
         settings = orbSlamSettings
         videoFrameCount = frameCount
         videoFps = fps
     }
-    fun measureProcessFrame(action:()->OrbFrameResult){
-        val (orbResult,elapsed) = measureTimedValue{
+
+    fun measureProcessFrame(action: () -> OrbFrameResult) {
+        val (orbResult, elapsed) = measureTimedValue {
             val state = action()
             state
         }
         frameMeasurements.add(OrbFrameMeasurement(elapsed, orbResult.state))
     }
 
-    fun dumpToFile(outFile:File):Boolean{
-        if(settings == null || frameMeasurements == null)
+    fun dumpToFile(outFile: File): Boolean {
+        if (settings == null || frameMeasurements == null)
             return false
-        val json = Json.encodeToString(OrbJsonStruct.serializer(),OrbJsonStruct(settings!!, videoFrameCount,videoFps,frameMeasurements.toTypedArray()))
+        val json = Json.encodeToString(
+            OrbJsonStruct.serializer(),
+            OrbJsonStruct(settings!!, videoFrameCount, videoFps, frameMeasurements.toTypedArray())
+        )
         outFile.writeText(json)
         return true
     }

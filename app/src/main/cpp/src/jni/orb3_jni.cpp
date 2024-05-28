@@ -93,9 +93,11 @@ Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nGetCurrentMapPoints(JNIEnv *env,
       return 0;
     try {
 
-    const vector<ORB_SLAM3::MapPoint*> &allMapPoints = processor->GetAllMapPoints();
-    const vector<ORB_SLAM3::MapPoint*> &referenceMapPoints = processor->GetReferenceMapPoints();
-    set<ORB_SLAM3::MapPoint*> setRefMapPoints(referenceMapPoints.begin(),referenceMapPoints.end());
+    const vector<ORB_SLAM3::MapPoint*> allMapPoints = processor->GetAllMapPoints();
+    const vector<ORB_SLAM3::MapPoint*> referenceMapPoints = processor->GetReferenceMapPoints();
+    std::vector<ORB_SLAM3::MapPoint*> bar;
+    std::copy_if (referenceMapPoints.begin(),referenceMapPoints.end(), std::back_inserter(bar), [](ORB_SLAM3::MapPoint* i){return i != nullptr; } );
+    set<ORB_SLAM3::MapPoint*> setRefMapPoints(bar.begin(),bar.end());
 
     if(allMapPoints.empty())
       return 0;
@@ -142,4 +144,30 @@ Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nDetectPlane(JNIEnv *env, jobject
       return 0;
     SLAMVideo::Plane* plane =  processor->detectPlane(50);
     return reinterpret_cast<long>(plane);
+}
+
+extern "C" JNIEXPORT jboolean Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nMapChanged(JNIEnv *env, jobject thiz, jlong ptr) {
+    auto *processor = reinterpret_cast<SLAMVideo::OrbSlamProcessor*>(ptr);
+    if (processor == nullptr)
+      return false;
+
+    bool changed = processor->getMapChanged();
+    return changed;
+}
+extern "C" JNIEXPORT jlongArray Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nGetKeyFramePositions(JNIEnv *env, jobject thiz, jlong ptr){
+    auto *processor = reinterpret_cast<SLAMVideo::OrbSlamProcessor*>(ptr);
+    if (processor == nullptr)
+      return 0;
+    std::vector<cv::Mat*> res = processor->GetAllKeyFramePositions();
+    std::vector<long> matPtrs;
+    matPtrs.reserve(res.size());
+    for(auto matPtr:res){
+      if(matPtr == NULL)
+        continue;
+      matPtrs.push_back(reinterpret_cast<long>(matPtr));
+    }
+    jlongArray longArray = env->NewLongArray(matPtrs.size());
+    env->SetLongArrayRegion(longArray,0, matPtrs.size(),
+                             matPtrs.data());
+    return longArray;
 }

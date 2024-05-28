@@ -8,6 +8,7 @@ import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.InputType
+import android.util.Log
 import android.util.Size
 import android.view.Choreographer
 import android.view.Surface
@@ -55,6 +56,7 @@ import com.mag.slam3dvideo.utils.video.VideoPlaybackCallback
 import org.opencv.android.OpenCVLoader
 import java.io.Closeable
 import java.io.File
+import kotlin.math.max
 import kotlin.math.roundToInt
 
 
@@ -122,10 +124,16 @@ class MapViewActivity : AppCompatActivity() {
 
     //  var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20230318_132255477.mp4"
 //  var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240223_143249538.mp4"   // park
-var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240409_084554114.mp4"   // outside_dorm
-    //var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240420_123354750.mp4"   // outside_backyard
+//var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240409_084554114.mp4"   // outside_dorm
+//    var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240420_123354750.mp4"   // outside_backyard
 //    var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240414_190423180.mp4"   // face
 //  var file: String = "/storage/emulated/0/DCIM/Camera/with_frames.mp4"              // park
+
+    /// tests
+//    var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240430_152811634.mp4"   // tree circle
+//    var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240518_151926421.mp4"   // line_fixed_view
+//    var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240430_112528898.mp4"   // outside_rotate
+    var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240528_193156055.mp4"   // outside_rotate
 
     private lateinit var surfaceView: SurfaceMediaPlayerControl
     private lateinit var uiHelper: UiHelper
@@ -145,6 +153,17 @@ var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240409_084554114.mp4" 
     private lateinit var objectScene: ObjectScene
     private lateinit var orbFrameInfoHolder: OrbFrameInfoHolder
 
+    private val settings = arrayOf(
+        OrbSlamSettings.fromScale(1.0,2000),
+        OrbSlamSettings.fromScale(0.5,2000),
+        OrbSlamSettings.fromScale(0.25,2000),
+        OrbSlamSettings.fromScale(1.0,1000),
+        OrbSlamSettings.fromScale(0.5,1000),
+        OrbSlamSettings.fromScale(0.25,1000),
+        OrbSlamSettings.fromScale(1.0,500),
+        OrbSlamSettings.fromScale(0.5,500),
+        OrbSlamSettings.fromScale(0.25,500),
+    )
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_map_view)
@@ -155,6 +174,9 @@ var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240409_084554114.mp4" 
 
         binding = ActivityMapViewBinding.inflate(layoutInflater)
         isEditMode = binding.editModeCheckBox.isChecked
+        binding.pointVisibility.setOnCheckedChangeListener {_,isChecked->
+            objectScene.setPointVisibility(isChecked)
+        }
         binding.exportMetrics.setOnClickListener{
             dumpMetrics()
         }
@@ -310,7 +332,7 @@ var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240409_084554114.mp4" 
 
         setInfoText("Initializing OrbSlamProcessor")
         val orbAssets = AssetUtils.getOrbFileAssets(this)
-        val orbSettings = OrbSlamSettings()
+        val orbSettings = settings[2]
         orbProcessor = OrbSlamProcessor(orbAssets.vocabFile, orbSettings)
         videoRetriever!!.initialize()
 
@@ -411,9 +433,19 @@ var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240409_084554114.mp4" 
         orbMetricMeasurer.measureProcessFrame {
             tcw = orbProcessor.processFrame(bitmap)
             state = orbProcessor.getTrackingState()
+//            val changed = orbProcessor.mapChanged() || frameNumber == 60
+//            if(changed){
+//                val newpositions = orbProcessor.getAllKeyframePositions()
+//                val size = newpositions.size
+//                if(size != 0){
+//                    val startFrame = max(0,frameNumber-size);
+//                    for(i in startFrame..startFrame+size-1)
+//                        orbFrameInfoHolder.setCameraPosAtFrame(i, newpositions[i-startFrame])
+//                    objectScene.updateCameraTrajectory(newpositions)
+//                }
+//            }
             return@measureProcessFrame OrbFrameResult(state)
         }
-
         val isAlmostEnd = Math.abs(bitmapItem.frameNumber - (videoRetriever?.frameCount ?: 0)) < 2
         if(isAlmostEnd && !isMetricDumped)
         {
@@ -431,7 +463,7 @@ var file: String = "/storage/emulated/0/DCIM/Camera/PXL_20240409_084554114.mp4" 
             val keys = orbProcessor.getCurrentFrameKeyPoints()
             orbFrameInfoHolder.setKeypointsAtFrame(frameNumber, keys)
 
-            if (i % 10 == 0) {       // every 3 frame get map points
+            if (i % 25 == 0) {       // every N frame get map points
                 val mapPoints = orbProcessor.getCurrentMapPoints()
                 objectScene.setMapPoints(mapPoints)
             }

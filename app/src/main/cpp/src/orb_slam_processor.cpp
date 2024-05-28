@@ -191,5 +191,55 @@ std::vector<MapPoint *> OrbSlamProcessor::GetAllMapPoints() {
 std::vector<MapPoint *> OrbSlamProcessor::GetReferenceMapPoints() {
   return mOrbSlamSystem.GetAtlas()->GetReferenceMapPoints();
 }
+bool OrbSlamProcessor::getMapChanged() {
+  return mOrbSlamSystem.MapChanged();
+}
+vector<cv::Mat*> OrbSlamProcessor::GetAllKeyFramePositions() {
+  auto tracker = mOrbSlamSystem.GetTracking();
+  auto poses = tracker->mlRelativeFramePoses;
+
+  std::vector<cv::Mat*> resultVector;
+  Eigen::Matrix4f initialPose;
+  list<ORB_SLAM3::KeyFrame*>::iterator lRit = tracker->mlpReferences.begin();
+  for(auto lit=tracker->mlRelativeFramePoses.begin(),lend=tracker->mlRelativeFramePoses.end();lit!=lend;lit++, lRit++){
+    ORB_SLAM3::KeyFrame* pKF = *lRit;
+
+    while(pKF->isBad())
+    {
+      pKF = pKF->GetParent();
+    }
+     auto tcwSophus = pKF->GetPose();
+     auto relative = tcwSophus.matrix() * (*lit).matrix();
+     Eigen::Matrix4f Tcw_Matrix = relative.matrix();
+     cv::Mat* cvT = new cv::Mat(4,4,CV_32FC1);
+     cv::eigen2cv(Tcw_Matrix, *cvT);
+     resultVector.push_back(cvT);
+  }
+
+  return resultVector;
+//  auto mpAtlas = mOrbSlamSystem.GetAtlas();
+//
+//  std::vector<ORB_SLAM3::KeyFrame*> vpKFs = mpAtlas->GetAllKeyFrames();
+//  sort(vpKFs.begin(),vpKFs.end(),ORB_SLAM3::KeyFrame::lId);
+//  std::vector<cv::Mat*> resultVector;
+//  resultVector.reserve(vpKFs.size());
+//  // Transform all keyframes so that the first keyframe is at the origin.
+//  // After a loop closure the first keyframe might not be at the origin.
+//  for(size_t i=0; i<vpKFs.size(); i++)
+//  {
+//    ORB_SLAM3::KeyFrame* pKF = vpKFs[i];
+//
+//    // pKF->SetPose(pKF->GetPose()*Two);
+//
+//    if(pKF->isBad())
+//      continue;
+//    auto tcwSophus = pKF->GetPose();
+//    Eigen::Matrix4f Tcw_Matrix = tcwSophus.matrix();
+//    cv::Mat* cvT = new cv::Mat(4,4,CV_32FC1);
+//    cv::eigen2cv(Tcw_Matrix, *cvT);
+//  resultVector.push_back(cvT);
+//  }
+//  return resultVector;
+}
 
 } // namespace SLAMVideo

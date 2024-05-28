@@ -47,13 +47,13 @@ class OrbSlamSettings {
     var height: Int = 1080
 
     @SerialName("Camera.newWidth")
-    var newWidth: Int = 960
+    var newWidth: Int = 1920
 
     @SerialName("Camera.newHeight")
-    var newHeight: Int = 540
+    var newHeight: Int = 1080
 
     @SerialName("Camera.imageScale")
-    var imageScale: Double = 0.5
+    var imageScale: Double = 1.0
 
     //# Color order of the images (0: BGR 1: RGB. It is ignored if images are grayscale)
     @SerialName("Camera.RGB")
@@ -118,4 +118,16 @@ class OrbSlamSettings {
 
     @SerialName("Viewer.ViewpointF")
     var viewpointF: Double = 2000.0
+
+
+    companion object{
+        fun fromScale(scale:Double,features:Int = 2000): OrbSlamSettings {
+            return OrbSlamSettings().apply {
+                newWidth = (width * scale).toInt()
+                newHeight = (height * scale).toInt()
+                nFeatures = features
+                imageScale = scale
+            }
+        }
+    }
 }

@@ -82,6 +82,9 @@ class OrbSlamProcessor() {
         return res;
     }
 
+    fun mapChanged():Boolean{
+        return nMapChanged(ptr);
+    }
 
     fun detectPlane() : Plane?{
         val ptr:Long = nDetectPlane(ptr);
@@ -89,21 +92,31 @@ class OrbSlamProcessor() {
             return null;
         return Plane(ptr)
     }
+    fun getAllKeyframePositions() : List<MatShared>{
+        val res = nGetKeyFramePositions(ptr);
+        if(res == null)
+            return ArrayList(0)
+        val positions = res.map { MatShared(it,true) }
+        return positions
+    }
 
 
     private external fun nGetMapPointsPositions(ptr: Long): LongArray?
     private external fun nGetCurrentFrameKeyPoints(ptr: Long): FloatArray?
     private external fun nGetCurrentMapPoints(ptr: Long): FloatArray?
+    private external fun nGetKeyFramePositions(ptr: Long): LongArray?
 
     private external fun nGetTrackingState(ptr: Long): Int
 
     private external fun nProcessBitmap(ptr: Long, bitmap: Bitmap): Long
     private external fun nInitOrb(vocabFileName: String, configFileName: String): Long
     private external fun nDetectPlane(ptr: Long): Long
+    private external fun nMapChanged(ptr: Long): Boolean
 
 
     fun resaveVocabularyAsBinary(textVocabInputPath: String, binaryVocabOutputPath: String) {
 //        resaveVocabularyAsBinaryNative(textVocabInputPath,binaryVocabOutputPath)
     }
+
 //    private external fun resaveVocabularyAsBinaryNative(textVocabInputPath:String, binartVocabOutputPath:String);
 }

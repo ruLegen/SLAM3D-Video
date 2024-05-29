@@ -138,7 +138,7 @@ public:
     long unsigned int GetNumLivedKF();
 
     long unsigned int GetNumLivedMP();
-
+    std::recursive_mutex* GetAtlasMutex();
 protected:
 
     std::set<Map*> mspMaps;
@@ -160,7 +160,7 @@ protected:
     ORBVocabulary* mpORBVocabulary;
 
     // Mutex
-    std::mutex mMutexAtlas;
+    std::recursive_mutex mMutexAtlas;
 
 
 }; // class Atlas

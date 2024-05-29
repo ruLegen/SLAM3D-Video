@@ -28,8 +28,10 @@ public:
 
   std::vector<cv::Mat*> GetAllKeyFramePositions();
 
+  std::recursive_mutex* GetAtlasMutex();
 private:
   ORB_SLAM3::System mOrbSlamSystem;
+
 };
 
 } // namespace SLAMVideo

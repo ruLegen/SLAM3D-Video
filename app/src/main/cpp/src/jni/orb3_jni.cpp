@@ -93,36 +93,37 @@ Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nGetCurrentMapPoints(JNIEnv *env,
       return 0;
     try {
 
-    const vector<ORB_SLAM3::MapPoint*> allMapPoints = processor->GetAllMapPoints();
-    const vector<ORB_SLAM3::MapPoint*> referenceMapPoints = processor->GetReferenceMapPoints();
-    std::vector<ORB_SLAM3::MapPoint*> bar;
-    std::copy_if (referenceMapPoints.begin(),referenceMapPoints.end(), std::back_inserter(bar), [](ORB_SLAM3::MapPoint* i){return i != nullptr; } );
-    set<ORB_SLAM3::MapPoint*> setRefMapPoints(bar.begin(),bar.end());
+        auto mutex = processor->GetAtlasMutex();
+        unique_lock<std::recursive_mutex> lock(*mutex);
 
-    if(allMapPoints.empty())
-      return 0;
+        const vector<ORB_SLAM3::MapPoint*> allMapPoints = processor->GetAllMapPoints();
+        const vector<ORB_SLAM3::MapPoint*> referenceMapPoints = processor->GetReferenceMapPoints();
+        set<ORB_SLAM3::MapPoint*> setRefMapPoints(referenceMapPoints.begin(),referenceMapPoints.end());
 
-    std::vector<float> unpackedMapPoints;
-    int reservePointCount = std::max(allMapPoints.size(),setRefMapPoints.size());
-    unpackedMapPoints.reserve(reservePointCount *numberOfMapPointMembers);
+        if(allMapPoints.empty())
+          return 0;
 
-    for(size_t i=0, iend=allMapPoints.size(); i<iend;i++)
-    {
-      if(allMapPoints[i]->isBad() || setRefMapPoints.count(referenceMapPoints[i]))
-        continue;
-      auto pt = allMapPoints[i];
-      unpackMapPoint(pt,false,unpackedMapPoints);
-    }
-    for(set<ORB_SLAM3::MapPoint*>::iterator sit= setRefMapPoints.begin(), send= setRefMapPoints.end(); sit!=send; sit++)
-    {
-      if((*sit)->isBad())
-        continue;
-      unpackMapPoint(*sit,true,unpackedMapPoints);
-    }
-    jfloatArray floatArray = env->NewFloatArray(unpackedMapPoints.size());
-    env->SetFloatArrayRegion(floatArray,0, unpackedMapPoints.size(),
-                             unpackedMapPoints.data());
-    return floatArray;
+        std::vector<float> unpackedMapPoints;
+        int reservePointCount = std::max(allMapPoints.size(),setRefMapPoints.size());
+        unpackedMapPoints.reserve(reservePointCount *numberOfMapPointMembers);
+
+        for(size_t i=0, iend=allMapPoints.size(); i<iend;i++)
+        {
+          if(allMapPoints[i]->isBad() || setRefMapPoints.count(allMapPoints[i]))
+            continue;
+          auto pt = allMapPoints[i];
+          unpackMapPoint(pt,false,unpackedMapPoints);
+        }
+        for(set<ORB_SLAM3::MapPoint*>::iterator sit= setRefMapPoints.begin(), send= setRefMapPoints.end(); sit!=send; sit++)
+        {
+          if((*sit)->isBad())
+            continue;
+          unpackMapPoint(*sit,true,unpackedMapPoints);
+        }
+        jfloatArray floatArray = env->NewFloatArray(unpackedMapPoints.size());
+        env->SetFloatArrayRegion(floatArray,0, unpackedMapPoints.size(),
+                                 unpackedMapPoints.data());
+        return floatArray;
 
     }catch (std::exception ex){
       return 0;

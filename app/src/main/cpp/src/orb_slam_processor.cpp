@@ -188,6 +188,10 @@ Plane* OrbSlamProcessor::detectPlane(int iterations) {
 std::vector<MapPoint *> OrbSlamProcessor::GetAllMapPoints() {
   return mOrbSlamSystem.GetAtlas()->GetAllMapPoints();
 }
+std::recursive_mutex* OrbSlamProcessor::GetAtlasMutex() {
+    return mOrbSlamSystem.GetAtlas()->GetAtlasMutex();
+}
+
 std::vector<MapPoint *> OrbSlamProcessor::GetReferenceMapPoints() {
   return mOrbSlamSystem.GetAtlas()->GetReferenceMapPoints();
 }

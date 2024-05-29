@@ -332,7 +332,7 @@ class MapViewActivity : AppCompatActivity() {
 
         setInfoText("Initializing OrbSlamProcessor")
         val orbAssets = AssetUtils.getOrbFileAssets(this)
-        val orbSettings = settings[1]
+        val orbSettings = settings[6]
         orbProcessor = OrbSlamProcessor(orbAssets.vocabFile, orbSettings)
         videoRetriever!!.initialize()
 
@@ -399,6 +399,7 @@ class MapViewActivity : AppCompatActivity() {
 
     var i = 0
 
+    var mapChanged:Boolean = false
     @SuppressLint("SetTextI18n")
     private fun processFrame(retryNum: Int) {
         if (retryNum > 2)
@@ -430,11 +431,11 @@ class MapViewActivity : AppCompatActivity() {
             throw Exception("Unsupported bitmap mode ${bitmap.config}")
         var tcw: MatShared? = null
         var state: TrackingState = TrackingState.UNKNOWN
-        var mapChanged:Boolean = false
         orbMetricMeasurer.measureProcessFrame {
             tcw = orbProcessor.processFrame(bitmap)
             state = orbProcessor.getTrackingState()
-            mapChanged = orbProcessor.mapChanged()
+
+            mapChanged = mapChanged.or(orbProcessor.mapChanged())
 //            if(changed){
 //                val newpositions = orbProcessor.getAllKeyframePositions()
 //                val size = newpositions.size

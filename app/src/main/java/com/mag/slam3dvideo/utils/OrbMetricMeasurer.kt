@@ -20,6 +20,12 @@ import java.util.ArrayList
 import kotlin.time.Duration
 import kotlin.time.measureTimedValue
 
+/**
+ * Custom JSON settings serializer
+ * It created in order to workaround YAML serialization tags in @see OrbSlamSettins
+ *
+ * @constructor Create empty Orb slam settings as string serializer
+ */
 object OrbSlamSettingsAsStringSerializer : KSerializer<OrbSlamSettings> {
     @Serializable
     data class OrbSlamSettingsJson(

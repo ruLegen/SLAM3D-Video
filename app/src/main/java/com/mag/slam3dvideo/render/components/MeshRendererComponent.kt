@@ -13,6 +13,9 @@ import com.mag.slam3dvideo.render.SceneContext
 import com.mag.slam3dvideo.render.mesh.DynamicMeshOf
 import com.mag.slam3dvideo.render.mesh.DynamicMeshState
 
+/**
+ * The MeshBuffers class represents a container for vertex and index buffers used in rendering a mesh.
+ */
 data class MeshBuffers(val vertexBuffer: VertexBuffer,val indexBuffer: IndexBuffer){
     fun destroy(context: SceneContext){
         val engine = context.engine
@@ -20,6 +23,10 @@ data class MeshBuffers(val vertexBuffer: VertexBuffer,val indexBuffer: IndexBuff
         engine.destroyIndexBuffer(indexBuffer)
     }
 }
+/**
+ * The MeshRendererComponent contains logic for representing mesh within a scene.
+ * In order to be drawn @see SceneObject must have this component
+ */
 class MeshRendererComponent : ObjectComponent() {
     var primitiveType:PrimitiveType = PrimitiveType.TRIANGLES
     private var buffers: MeshBuffers? = null
@@ -44,6 +51,11 @@ class MeshRendererComponent : ObjectComponent() {
         context.scene.addEntity(renderable)
     }
 
+    /**
+     * Check whether mesh update required
+     *
+     * @param context
+     */
     override fun update(context: SceneContext) {
         if(shouldUpdateVisibility){
             shouldUpdateVisibility = false
@@ -87,6 +99,12 @@ class MeshRendererComponent : ObjectComponent() {
         shouldUpdateVisibility =true
     }
 
+    /**
+     * Resize buffers for dynamic mesh.
+     *
+     * @param context
+     * @param dynamicMesh Mesh
+     */
     private fun updateDynamicMesh(context: SceneContext, dynamicMesh: DynamicMesh) {
         val state = dynamicMesh.checkState()
         if(state == DynamicMeshState.Unchanged)
@@ -142,11 +160,23 @@ class MeshRendererComponent : ObjectComponent() {
         return MeshBuffers(vertexBuffer,indexBuffer)
     }
 
+    /**
+     * Set mesh for current component
+     *
+     * @param newMesh
+     */
+
     fun setMesh(newMesh: Mesh){
         isDynamic = newMesh is DynamicMesh
         mesh = newMesh
         shouldUpdateMesh = true
     }
+
+    /**
+     * Set new material parameters for current mesh material
+     *
+     * @param newMaterialInstance
+     */
     fun setMaterialInstance(newMaterialInstance: MaterialInstance){
         materialInstance = newMaterialInstance
         shouldUpdateMaterialInstance = true

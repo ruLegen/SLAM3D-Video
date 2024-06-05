@@ -18,6 +18,15 @@ import kotlin.math.abs
 /**
  * The VideoDecoder class decodes video frames from a given source file and renders them on a specified Surface.
  */
+
+
+/**
+ * Creates a new VideoDecoder instance.
+ *
+ * @param sourceFile     The source file containing the video.
+ * @param surface        The Surface on which to render the decoded video frames.
+ * @param frameCallback  An optional callback to receive frame rendering events.
+ */
 class VideoDecoder(
     sourceFile: File,
     surface: Surface?,
@@ -43,6 +52,10 @@ class VideoDecoder(
     private var decodeFrameQueue: BlockingQueue<Long> = LinkedBlockingQueue(999)
     private var seekTimeRequest: Long = INVALID_SEEK_TIME
 
+    /**
+     * Initialize MediaExtractor
+     * Retrieve video info
+     */
     init {
         try {
             extractor = MediaExtractor()

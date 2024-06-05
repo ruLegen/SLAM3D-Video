@@ -36,11 +36,19 @@ import java.nio.ByteOrder
 
 private object Exporter{
 }
+/**
+ * The SceneExporter class is responsible for exporting a scene to a GLTF file format.
+ * @property cameraLocationHolder The holder for camera location information.
+ * @property cameraCalibration The camera calibration data.
+ */
 class SceneExporter (val cameraLocationHolder: OrbFrameInfoHolder,val cameraCalibration: CameraCallibration) {
-
     companion object{
         val executor= TaskRunner()
     }
+    /**
+     * Exports the scene to a GLTF file format.
+     * @param sceneContext The scene to export
+     */
     fun export(sceneContext: SceneContext) {
         try {
             val scene = DefaultSceneModel()
@@ -85,7 +93,13 @@ class SceneExporter (val cameraLocationHolder: OrbFrameInfoHolder,val cameraCali
         return  res
     }
 
-
+    /**
+     * Create glTF animation for camera node
+     *
+     * @param cameraLocationHolder
+     * @param node
+     * @return
+     */
     private fun createCameraAnimation(cameraLocationHolder: OrbFrameInfoHolder, node: DefaultNodeModel): AnimationModel {
         val allTransformMatrix = cameraLocationHolder.cameraTransformMatrixList
         val decomposedTransforms = allTransformMatrix
@@ -193,6 +207,14 @@ class SceneExporter (val cameraLocationHolder: OrbFrameInfoHolder,val cameraCali
         return nodes
     }
 
+    /**
+     * Generates glTF node
+     *
+     * @param context
+     * @param parentNode
+     * @param obj
+     * @return
+     */
     private fun getNode(context: SceneContext,parentNode: DefaultNodeModel?,obj: SceneObject): DefaultNodeModel {
         val node = DefaultNodeModel()
         node.setParent(parentNode)

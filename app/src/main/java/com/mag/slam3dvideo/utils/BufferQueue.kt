@@ -10,6 +10,13 @@ enum class QueueState {
     Producing,
 }
 
+/**
+ * Class representing an item in the buffer queue.
+ *
+ * @param item The item to be stored in the buffer.
+ * @param guid The unique identifier for the item.
+ * @param T The type of the item, which must be a Closeable.
+ */
 class BufferQueueItem<T>(item: T?, guid: UUID = UUID.randomUUID())
         where T : Closeable{
     var value: T? = item
@@ -17,6 +24,12 @@ class BufferQueueItem<T>(item: T?, guid: UUID = UUID.randomUUID())
         private set
 }
 
+/**
+ * Class representing a buffer queue with a fixed capacity.
+ *
+ * @param size The size of the buffer queue.
+ * @param T The type of the items in the queue, which must be Closeable.
+ */
 class BufferQueue<T>(size: Int) where T : Closeable {
     var capacity: Int = size
 
@@ -34,7 +47,11 @@ class BufferQueue<T>(size: Int) where T : Closeable {
             queueStates[emptyItem.id] = QueueState.Consumed
         }
     }
-
+    /**
+     * Gets a buffer item to produce.
+     * Blocks caller thread if no free buffer
+     * @return The buffer item to produce or null if no item is available.
+     */
     fun getBufferToProduce(): BufferQueueItem<T>? {
         val getItem =
             { queueStates.firstNotNullOfOrNull { item -> item.takeIf { it.value == QueueState.Consumed } } }
@@ -54,6 +71,11 @@ class BufferQueue<T>(size: Int) where T : Closeable {
         }
     }
 
+    /**
+     * Gets a buffer item to consume.
+     * Block caller thread if there is no filled buffer
+     * @return The buffer item to consume or null if no item is available.
+     */
     fun getBufferToConsume(): BufferQueueItem<T>? {
         val getItem = {producedBuffersDeque.removeFirstOrNull()}
         var item: BufferQueueItem<T>?
@@ -72,6 +94,11 @@ class BufferQueue<T>(size: Int) where T : Closeable {
         }
     }
 
+    /**
+     * Releases a consumed buffer item back to the queue.
+     * Awakes thread that blocked by @see getBufferToProduce
+     * @param item The buffer item to be released.
+     */
     fun releaseConsumedBuffer(item: BufferQueueItem<T>) {
         synchronized(lock) {
             if (!trackedItems.containsKey(item.id))
@@ -87,6 +114,11 @@ class BufferQueue<T>(size: Int) where T : Closeable {
         }
     }
 
+    /**
+     * Releases a produced buffer item to the consumer queue.
+     * Awakes thread that blocked by @see getBufferToConsume
+     * @param item The buffer item to be released.
+     */
     fun releaseProducedBuffer(item: BufferQueueItem<T>) {
         synchronized(lock) {
             if (!trackedItems.containsKey(item.id))

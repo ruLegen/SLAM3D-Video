@@ -20,13 +20,20 @@ import com.mag.slam3dvideo.utils.FileUtils
 import com.mag.slam3dvideo.utils.TaskRunner
 import com.mag.slam3dvideo.videmodels.VideoViewerViewModel
 
-
+/**
+ * The VideoViewerActivity class handles video selection, permission requests, and video playback.
+ */
 class VideoViewerActivity : AppCompatActivity() {
     lateinit var binding: ActivityVideoViewerBinding
     private var taskRunner: TaskRunner = TaskRunner()
     private var tokenSource: CancellationTokenSource = CancellationTokenSource()
     private val lock = Any()
     private var prevProgress: Float = 0F
+
+    /**
+     * Launcher for selecting media files.
+     * Requires API level 29 (Android Q) or higher.
+     */
     @RequiresApi(Build.VERSION_CODES.Q)
     var mediaSelectorLauncher =
         registerForActivityResult<PickVisualMediaRequest, Uri>(ActivityResultContracts.PickVisualMedia()) {
@@ -36,7 +43,10 @@ class VideoViewerActivity : AppCompatActivity() {
                 initVideoPlayer()
             }
         }
-
+    /**
+     * Called when the activity is first created.
+     * Initializes the ViewModel, sets up the binding, and requests media permissions.
+     */
     @RequiresApi(Build.VERSION_CODES.Q)
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -79,7 +89,9 @@ class VideoViewerActivity : AppCompatActivity() {
             ).show();
         }
     }
-
+    /**
+     * Initializes the video player and sets up the video timeline.
+     */
     private fun initVideoPlayer() {
         val vm = binding.vm
         val player = binding.videoView
@@ -88,7 +100,6 @@ class VideoViewerActivity : AppCompatActivity() {
         val token = tokenSource.token
 
         timeline.reset()
-//        timeline.setDelegate(vm!!.timeLineDelegate)
         timeline.setDelegate(object : VideoTimelineView.VideoTimelineViewDelegate {
             var playerWasActive:Boolean = false
             override fun onLeftProgressChanged(view: VideoTimelineView, progress: Float) {

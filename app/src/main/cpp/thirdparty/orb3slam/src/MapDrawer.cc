@@ -142,8 +142,8 @@ void MapDrawer::DrawMapPoints()
 //    if(!pActiveMap)
 //        return;
 //
-//    const vector<MapPoint*> &vpMPs = pActiveMap->GetAllMapPoints();
-//    const vector<MapPoint*> &vpRefMPs = pActiveMap->GetReferenceMapPoints();
+//    const vector<MapPoint*> &vpMPs = pActiveMap->getAllMapPoints();
+//    const vector<MapPoint*> &vpRefMPs = pActiveMap->getReferenceMapPoints();
 //
 //    set<MapPoint*> spRefMPs(vpRefMPs.begin(), vpRefMPs.end());
 //

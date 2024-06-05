@@ -21,15 +21,23 @@ import kotlin.experimental.and
 import kotlin.io.path.Path
 import kotlin.io.path.exists
 
-
+/**
+ * Utility class for handling assets and permissions related to media storage.
+ */
 class AssetUtils {
     companion object{
         private val TAG :String="AssetUtils"
+        /**
+         * Array of storage permissions required for API levels below 33.
+         */
         var storage_permissions = arrayOf<String>(
             Manifest.permission.WRITE_EXTERNAL_STORAGE,
             Manifest.permission.READ_EXTERNAL_STORAGE
         )
 
+        /**
+         * Array of storage permissions required for API level 33 and above.
+         */
         @RequiresApi(api = Build.VERSION_CODES.TIRAMISU)
         var storage_permissions_33 = arrayOf<String>(
             Manifest.permission.READ_MEDIA_IMAGES,
@@ -37,6 +45,11 @@ class AssetUtils {
             Manifest.permission.READ_MEDIA_VIDEO
         )
 
+        /**
+         * Returns the appropriate storage permissions based on the current API level.
+         *
+         * @return An array of storage permissions.
+         */
         fun permissions(): Array<String> {
             val p: Array<String>
             p = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -47,14 +60,24 @@ class AssetUtils {
             return p
         }
 
+        /**
+         * Checks if the application has all the required media permissions.
+         *
+         * @param activity The activity context.
+         * @return True if all permissions are granted, false otherwise.
+         */
         fun hasAllMediaPermissions(activity:Activity):Boolean{
             return permissions().all {
                 ActivityCompat.checkSelfPermission(activity, it) == PackageManager.PERMISSION_GRANTED
             }
-
         }
+
         /**
-         * @return false if request didn't happened
+         * Requests the necessary media permissions.
+         *
+         * @param activity The activity context.
+         * @param code The request code for the permissions request.
+         * @return False if the request did not happen, true otherwise.
          */
         fun askMediaPermissions(activity: Activity, code:Int): Boolean{
             val permissions = permissions()
@@ -63,6 +86,13 @@ class AssetUtils {
             ActivityCompat.requestPermissions(activity,permissions(),code);
             return  true
         }
+
+        /**
+         * Computes the MD5 hash of a file from an InputStream.
+         *
+         * @param inputStream The input stream of the file.
+         * @return The MD5 hash of the file, or null if an error occurs.
+         */
         fun fileToMD5(inputStream: InputStream): String? {
             return try {
                 val buffer = ByteArray(10240)
@@ -85,12 +115,25 @@ class AssetUtils {
                 }
             }
         }
+
+        /**
+         * Computes the MD5 hash of a file from its path.
+         *
+         * @param path The path to the file.
+         * @return The MD5 hash of the file, or null if an error occurs.
+         */
         fun fileToMD5(path: String): String? {
             var inputStream = FileInputStream(path)
             val md5 = fileToMD5(inputStream)
             inputStream.close();
             return md5
         }
+        /**
+         * Converts a byte array to a hexadecimal string.
+         *
+         * @param md5Bytes The byte array representing the MD5 hash.
+         * @return The hexadecimal string representation of the MD5 hash.
+         */
         private fun convertHashToString(md5Bytes: ByteArray): String? {
             var returnVal = ""
             for (i in md5Bytes.indices) {
@@ -99,7 +142,13 @@ class AssetUtils {
             return returnVal.uppercase(Locale.getDefault())
         }
 
-
+        /**
+         * Creates a file from an InputStream.
+         *
+         * @param fileName The name of the file to be created.
+         * @param inputStream The input stream containing the file data.
+         * @return The created file, or null if an error occurs.
+         */
         fun createFileFromInputStream(fileName:String,inputStream: InputStream): File? {
             try {
                 if(Path(fileName).exists()){

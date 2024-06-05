@@ -15,6 +15,9 @@ import java.util.concurrent.LinkedBlockingQueue
 import kotlin.math.abs
 
 
+/**
+ * The VideoDecoder class decodes video frames from a given source file and renders them on a specified Surface.
+ */
 class VideoDecoder(
     sourceFile: File,
     surface: Surface?,
@@ -518,28 +521,6 @@ class VideoDecoder(
         return if (diffA < diffB) a else b
     }
 
-
-    /* private fun getNearestTime(time: Long, extractor: MediaExtractor, maxRange: Int): Long {
-         extractor.seekTo(time, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
-         var count = 0
-         var sampleTime = extractor.sampleTime
-         while (count < maxRange) {
-             extractor.advance()
-             val s = extractor.sampleTime
-             if (s != -1L) {
-                 count++
-                 // Choose the one with the smallest time difference from the target
-                 sampleTime = time.minDifferenceValue(sampleTime, s)
-                 if (time -sampleTime <= mFrameTimeUs) {
-                     //If the difference is within one frame interval, it means success
-                     return sampleTime
-                 }
-             } else {
-                 count = maxRange
-             }
-         }
-         return sampleTime
-     }*/
     private fun getNearestTime(time: Long, extractor: MediaExtractor): Long {
         extractor.seekTo(time, MediaExtractor.SEEK_TO_PREVIOUS_SYNC)
         var sampleTime = extractor.sampleTime

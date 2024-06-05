@@ -185,20 +185,20 @@ Plane* OrbSlamProcessor::detectPlane(int iterations) {
   }
   return new Plane(vInlierMPs, Tcw);
 }
-std::vector<MapPoint *> OrbSlamProcessor::GetAllMapPoints() {
+std::vector<MapPoint *> OrbSlamProcessor::getAllMapPoints() {
   return mOrbSlamSystem.GetAtlas()->GetAllMapPoints();
 }
-std::recursive_mutex* OrbSlamProcessor::GetAtlasMutex() {
+std::recursive_mutex* OrbSlamProcessor::getAtlasMutex() {
     return mOrbSlamSystem.GetAtlas()->GetAtlasMutex();
 }
 
-std::vector<MapPoint *> OrbSlamProcessor::GetReferenceMapPoints() {
+std::vector<MapPoint *> OrbSlamProcessor::getReferenceMapPoints() {
   return mOrbSlamSystem.GetAtlas()->GetReferenceMapPoints();
 }
 bool OrbSlamProcessor::getMapChanged() {
   return mOrbSlamSystem.MapChanged();
 }
-vector<cv::Mat*> OrbSlamProcessor::GetAllKeyFramePositions() {
+vector<cv::Mat*> OrbSlamProcessor::getAllKeyFramePositions() {
   auto tracker = mOrbSlamSystem.GetTracking();
   auto poses = tracker->mlRelativeFramePoses;
 

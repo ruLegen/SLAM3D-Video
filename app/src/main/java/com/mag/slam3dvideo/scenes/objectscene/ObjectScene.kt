@@ -24,7 +24,9 @@ import com.mag.slam3dvideo.utils.CameraUtils
 import com.mag.slam3dvideo.utils.OrbFrameInfoHolder
 import com.mag.slam3dvideo.utils.SceneExporter
 import org.opencv.core.Mat.Tuple3
-
+/**
+ * The CameraCallibration data class represents the calibration parameters for the camera.
+ */
 data class CameraCallibration(
     val x: Double,
     val h: Double,
@@ -33,7 +35,9 @@ data class CameraCallibration(
     val cx: Double,
     val cy: Double
 )
-
+/**
+ * The ObjectScene class represents a scene for rendering 3D objects in virtual scene recreated by ORB-SLAM system.
+ */
 class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
     private var lastWidth: Int = 1
     private var lastHeight: Int = 1
@@ -67,6 +71,12 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
 
     }
 
+    /**
+     * Initializes gesture manipulator
+     * Creates @see ObjectSceneContext
+     *
+     * @param e
+     */
     @SuppressLint("ClickableViewAccessibility")
     override fun init(e: Engine) {
         sceneContext = ObjectSceneContext(e)
@@ -92,6 +102,10 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
 
     }
 
+    /**
+     * Update All scene state
+     *
+     */
     override fun update() {
         sceneContext.update()
     }
@@ -101,6 +115,16 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
     override fun render(renderer: Renderer) {
         renderer.render(sceneContext.view)
     }
+    /**
+     * Sets the calibration parameters for the camera.
+     *
+     * @param w  The width of the camera.
+     * @param h  The height of the camera.
+     * @param fx The focal length in the x-direction.
+     * @param fy The focal length in the y-direction.
+     * @param cx The principal point in the x-direction.
+     * @param cy The principal point in the y-direction.
+     */
     fun setCameraCallibration(
         w: Double,
         h: Double,
@@ -114,6 +138,11 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
         sceneContext.camera.setCustomProjection(doubleArray, 0.001, 1000.0)
     }
 
+    /**
+     * Move virtual camera according @param tcw transform matrix
+     *
+     * @param tcw World->Camera transform
+     */
     fun updateCameraMatrix(tcw: MatShared?) {
         if (tcw == null)
             return
@@ -126,6 +155,9 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
     }
 
 
+    /*
+
+     */
     fun setMapPoints(mapPoints: List<MapPoint>) {
         mMapPoints = mapPoints
         val vertexes = mMapPoints.map {
@@ -144,6 +176,7 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
         lastHeight = height
         updateCameraProjection(width, height)
     }
+
 
     private fun updateCameraProjection(width: Int, height: Int) {
         val near = 0.001
@@ -182,6 +215,11 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
         }
     }
 
+    /**
+     * camera mesh transform
+     *
+     * @param tcw World->Camera transform
+     */
     fun setCameraObjectTransform(tcw: MatShared?) {
         val glTcw = tcw?.toGlMatrix() ?: return
         val glTwc = FloatArray(16)
@@ -208,6 +246,13 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
     fun setPointVisibility(isVisible:Boolean){
         sceneContext.setPointVisibility(isVisible)
     }
+
+    /**
+     * Unpack XYZ position from OpenCV matrix
+     *
+     * @param tcw
+     * @return
+     */
     fun getXYZ(tcw:MatShared?):Tuple3<Float>?{
         val glTcw = tcw?.toGlMatrix() ?: return null
         val glTwc = FloatArray(16)
@@ -217,10 +262,22 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
         val z = glTwc[14]
         return Tuple3<Float>(x,y,z)
     }
+
+    /**
+     * Push new point in camera trajectory mesh
+     *
+     * @param tcw position
+     */
     fun updateCameraTrajectory(tcw: MatShared?) {
         val pos = getXYZ(tcw) ?: return
         sceneContext.addPointsToCameraTrajectory(arrayListOf(pos))
     }
+
+    /**
+     * Set camera trajectory mesh
+     *
+     * @param tcws
+     */
     fun updateCameraTrajectory(tcws: List<MatShared?>) {
         val trajLine = StaticMeshes.getDynamicMesh(2047) as DynamicMeshOf<StaticMeshes.MeshVertex>
         val vertexes = tcws.map {
@@ -238,6 +295,11 @@ class ObjectScene(private val surfaceView: SurfaceView) : OrbScene {
     }
 
 
+    /**
+     * Export scene to file
+     *
+     * @param cameraLocationHolder
+     */
     fun export(cameraLocationHolder: OrbFrameInfoHolder) {
         SceneExporter(cameraLocationHolder,cameraCallibration).export(sceneContext)
     }

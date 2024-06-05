@@ -34,7 +34,9 @@ import com.mag.slam3dvideo.utils.Theme
 import java.io.FileInputStream
 import java.util.concurrent.Callable
 
-
+/**
+ * A custom view that displays a video timeline with draggable progress markers.
+ */
 class VideoTimelineView
 @JvmOverloads constructor(
     context: Context,
@@ -100,6 +102,9 @@ class VideoTimelineView
         this.keyframes.addAll(keyframes!!)
     }
 
+    /**
+     * Interface to be implemented by classes that will act as delegates for the VideoTimelineView.
+     */
     interface VideoTimelineViewDelegate {
         fun onLeftProgressChanged(view: VideoTimelineView, progress: Float)
         fun onRightProgressChanged(view: VideoTimelineView, progress: Float)
@@ -132,10 +137,19 @@ class VideoTimelineView
         timeHintView?.updateColors()
     }
 
+
+    /**
+     * Sets the minimum progress difference.
+     * @param value The minimum progress difference.
+     */
     fun setMinProgressDiff(value: Float) {
         minProgressDiff = value
     }
 
+    /**
+     * Sets the maximum progress difference.
+     * @param value The maximum progress difference.
+     */
     fun setMaxProgressDiff(value: Float) {
         maxProgressDiff = value
         if (rightProgress - leftProgress > maxProgressDiff) {
@@ -424,6 +438,10 @@ class VideoTimelineView
         return loadingTask
     }
 
+    /**
+     * Destroys the view, releasing resources.
+     * @param recycle True if the bitmaps should be recycled, false otherwise.
+     */
     @JvmOverloads
     fun destroy(recycle: Boolean = true) {
         synchronized(VideoTimelineView.Companion.sync) {

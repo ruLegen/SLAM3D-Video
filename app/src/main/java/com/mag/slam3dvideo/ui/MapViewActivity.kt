@@ -59,20 +59,39 @@ import java.io.File
 import kotlin.math.max
 import kotlin.math.roundToInt
 
-
+/**
+ * A callback class to handle surface control events for a video decoder.
+ *
+ * @param videoDecoder The VideoDecoder instance.
+ * @param decoderSpeedControlCallback The SpeedControlCallback instance.
+ */
 class SurfaceControlCallback(
     val videoDecoder: VideoDecoder,
     val decoderSpeedControlCallback: SpeedControlCallback
 ) : MediaPlayerControlCallback {
     var currentDecodeFrame: Int = 0
+    /**
+     * Called when the media player starts.
+     *
+     * @param sender The media player control instance.
+     */
     override fun onStart(sender: MediaController.MediaPlayerControl) {
         decoderSpeedControlCallback.resume()
     }
-
+    /**
+     * Called when the media player pauses.
+     *
+     * @param sender The media player control instance.
+     */
     override fun onPause(sender: MediaController.MediaPlayerControl) {
         decoderSpeedControlCallback.pause()
     }
-
+    /**
+     * Called when the media player seeks to a new position.
+     *
+     * @param sender The media player control instance.
+     * @param pos The new position in milliseconds.
+     */
     override fun onSeek(sender: MediaController.MediaPlayerControl, pos: Int) {
         val isBackwards = pos < 0
         if (isBackwards)
@@ -83,6 +102,12 @@ class SurfaceControlCallback(
 }
 
 class MapViewActivity : AppCompatActivity() {
+    /**
+     * A data class representing a bitmap item with a frame number.
+     *
+     * @param frameNumber The frame number.
+     * @param bitmap The bitmap.
+     */
     data class BitmapItem(var frameNumber: Int, var bitmap: Bitmap?) : Closeable {
         override fun close() {
             try {
@@ -229,7 +254,13 @@ class MapViewActivity : AppCompatActivity() {
         if (isEditMode)
             decoderSpeedControlCallback.pause()
     }
-
+    /**
+     * Asks the user to input an integer value.
+     *
+     * @param title The title of the dialog.
+     * @param value The default value in the input field.
+     * @param callback The callback to be invoked with the input integer.
+     */
     private fun askUserInputInt(title: String, value: String?, callback: (i: Int) -> Unit) {
         val builder: AlertDialog.Builder = AlertDialog.Builder(this)
         builder.setTitle(title)
@@ -267,13 +298,19 @@ class MapViewActivity : AppCompatActivity() {
             ).show();
         }
     }
-
+    /**
+     * Sets the info text on the UI.
+     *
+     * @param s The string to be set as the info text.
+     */
     private fun setInfoText(s: String) {
         handler.post {
             infoText.text = s
         }
     }
-
+    /**
+     * Sets up the surface view for rendering.
+     */
     private fun setupSurfaceView() {
         uiHelper = UiHelper(UiHelper.ContextErrorPolicy.DONT_CHECK)
         uiHelper.renderCallback = SurfaceCallback()
@@ -282,12 +319,17 @@ class MapViewActivity : AppCompatActivity() {
         uiHelper.attachTo(surfaceView)
     }
 
+    /**
+     * Sets up the Filament engine and renderer.
+     */
     private fun setupFilament() {
         engine = Engine.Builder().featureLevel(Engine.FeatureLevel.FEATURE_LEVEL_1).build()
         renderer = engine.createRenderer()
 
     }
-
+    /**
+     * Sets up the scenes for rendering.
+     */
     private fun setupScenes() {
         videoScene = VideoScene(surfaceView, videoRetriever!!.frameSize)
         keypointsScene = KeypointsScene(surfaceView)
@@ -325,7 +367,10 @@ class MapViewActivity : AppCompatActivity() {
         })
         animator.start()
     }
-
+    /**
+     * Initializes the video frame grabber.
+     * Initializes video decoder, videoScene, 2 threads for image processing
+     */
     private fun initVideoFrameGraber() {
         frameBufferQueue = BufferQueue(7)
         videoRetriever = VideoFrameRetriever(file);
@@ -386,6 +431,11 @@ class MapViewActivity : AppCompatActivity() {
         decoderSpeedControlCallback.pause()
     }
 
+    /**
+     * Decodes a video frame and puts it back to @see frameBufferQueue
+     *
+     * @param frame The frame number to be decoded.
+     */
     private fun decodeFrame(frame: Int) {
         val b = frameBufferQueue.getBufferToProduce()!!
         val decodedBitmap = videoRetriever?.getFrame(frame)
@@ -400,6 +450,12 @@ class MapViewActivity : AppCompatActivity() {
     var i = 0
 
     var mapChanged:Boolean = false
+
+    /**
+     * Gets a video frame and passed it to ORB_SLAM3
+     *
+     * @param retryNum The number of retry attempts for processing the frame.
+     */
     @SuppressLint("SetTextI18n")
     private fun processFrame(retryNum: Int) {
         if (retryNum > 2)
@@ -479,7 +535,11 @@ class MapViewActivity : AppCompatActivity() {
             processFrame(0)
         })
     }
-
+    /**
+     * Sets up the preview for a specific frame number.
+     *
+     * @param frameNumber The frame number for which the preview should be set up.
+     */
     private fun setupPreviewForFrame(frameNumber: Int) {
         if (frameNumber.toLong() == (videoRetriever?.frameCount ?: frameNumber))
             return
@@ -488,12 +548,7 @@ class MapViewActivity : AppCompatActivity() {
         val size = videoRetriever!!.frameSize
         videoScene.processBitmap(RectF(0f, 0f, size.width, size.height))
         objectScene.updateCameraMatrix(cameraPos)
-//        keypointsScene.updateKeypoints(points)
-//        Thread.sleep(100)
-//        imagePreviewTaskRunner?.executeAsync({ previewImage(frameNumber + 1) })
     }
-
-// Not required when SKIP_BITMAP_COPY is true
 
     override fun onResume() {
         super.onResume()
@@ -558,8 +613,13 @@ class MapViewActivity : AppCompatActivity() {
             }
         }
     }
-
+    /**
+     * A class to handle surface callbacks for rendering.
+     */
     inner class SurfaceCallback : UiHelper.RendererCallback {
+        /**
+         * regenerate swapchain
+         */
         override fun onNativeWindowChanged(surface: Surface) {
             swapChain?.let { engine.destroySwapChain(it) }
 
@@ -592,6 +652,12 @@ class MapViewActivity : AppCompatActivity() {
             }
         }
 
+        /**
+         * NOtify all scenes that view changed
+         *
+         * @param width
+         * @param height
+         */
         override fun onResized(width: Int, height: Int) {
 //            val zoom = 1.5
 //            val aspect = width.toDouble() / height.toDouble()

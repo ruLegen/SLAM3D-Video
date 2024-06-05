@@ -4,7 +4,13 @@
 #include <bitmap_guard.h>
 #include <algorithm>
 #include <opencv2/core/eigen.hpp>
-
+/**
+ * Unpacks the coordinates of a MapPoint along with its referenced status into an output container.
+ *
+ * @param pt Pointer to the MapPoint object.
+ * @param isReferenced Flag indicating whether the MapPoint is referenced.
+ * @param outputContainer Vector to store the unpacked coordinates and referenced status.
+ */
 inline void unpackMapPoint(ORB_SLAM3::MapPoint* pt,bool isReferenced, vector<float>& outputContainer){
   auto worldPos = pt->GetWorldPos();
   outputContainer.push_back(worldPos(0));
@@ -12,7 +18,13 @@ inline void unpackMapPoint(ORB_SLAM3::MapPoint* pt,bool isReferenced, vector<flo
   outputContainer.push_back(worldPos(2));
   outputContainer.push_back(isReferenced);
 }
-
+/**
+ * Initializes the ORB-SLAM system with the given vocabulary and configuration file paths.
+ *
+ * @param vocab_file_name File name of the vocabulary.
+ * @param config_file_name File name of the configuration.
+ * @return Pointer to the initialized ORB-SLAM processor.
+ */
 extern "C"
 JNIEXPORT jlong JNICALL
 Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nInitOrb(JNIEnv *env, jobject thiz, jstring vocab_file_name,
@@ -32,6 +44,13 @@ Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nInitOrb(JNIEnv *env, jobject thi
     return reinterpret_cast<jlong>(SLAM);
 }
 
+/**
+ * Processes a bitmap frame using the ORB-SLAM system.
+ *
+ * @param ptr Pointer to the ORB-SLAM processor.
+ * @param bitmap Bitmap object representing the frame.
+ * @return Pointer to the transformation matrix.
+ */
 extern "C" JNIEXPORT jlong JNICALL
 Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nProcessBitmap(JNIEnv *env, jobject thiz, jlong ptr,jobject bitmap) {
 
@@ -42,7 +61,12 @@ Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nProcessBitmap(JNIEnv *env, jobje
     cv::Mat* Tcw = processor->processFrame(inputGuard);
     return reinterpret_cast<long>(Tcw);
 }
-
+/**
+ * Retrieves the positions of map points detected by the ORB-SLAM system.
+ *
+ * @param ptr Pointer to the ORB-SLAM processor.
+ * @return Array of pointers to the map point positions.
+ */
 extern "C" JNIEXPORT jlongArray
 Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nGetMapPointsPositions(JNIEnv *env, jobject thiz, jlong ptr) {
     auto *processor = reinterpret_cast<SLAMVideo::OrbSlamProcessor*>(ptr);
@@ -62,7 +86,12 @@ Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nGetMapPointsPositions(JNIEnv *en
     env->SetLongArrayRegion(longJavaArray,0,matPointers.size(),matPointers.data());
     return  longJavaArray;
 }
-
+/**
+ * Retrieves the key points of the current frame.
+ *
+ * @param ptr Pointer to the ORB-SLAM processor.
+ * @return Array of unpacked key points represented as floats.
+ */
 extern "C" JNIEXPORT jfloatArray
 Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nGetCurrentFrameKeyPoints(JNIEnv *env, jobject thiz, jlong ptr) {
     static int numberOfKeyPointMembers =2; //keep in sync with OrbSlamProcessor.kt
@@ -84,6 +113,12 @@ Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nGetCurrentFrameKeyPoints(JNIEnv 
     env->SetFloatArrayRegion(floatArray,0,unpackedKeyPoints.size(),unpackedKeyPoints.data());
     return floatArray;
 }
+/**
+ * Retrieves the map points of the current map.
+ *
+ * @param ptr Pointer to the ORB-SLAM processor.
+ * @return Array of unpacked map points represented as floats.
+ */
 
 extern "C" JNIEXPORT jfloatArray
 Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nGetCurrentMapPoints(JNIEnv *env, jobject thiz, jlong ptr) {
@@ -93,11 +128,12 @@ Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_nGetCurrentMapPoints(JNIEnv *env,
       return 0;
     try {
 
-        auto mutex = processor->GetAtlasMutex();
+        auto mutex = processor->getAtlasMutex();
         unique_lock<std::recursive_mutex> lock(*mutex);
 
-        const vector<ORB_SLAM3::MapPoint*> allMapPoints = processor->GetAllMapPoints();
-        const vector<ORB_SLAM3::MapPoint*> referenceMapPoints = processor->GetReferenceMapPoints();
+        const vector<ORB_SLAM3::MapPoint*> allMapPoints = processor->getAllMapPoints();
+        const vector<ORB_SLAM3::MapPoint*> referenceMapPoints =
+            processor->getReferenceMapPoints();
         set<ORB_SLAM3::MapPoint*> setRefMapPoints(referenceMapPoints.begin(),referenceMapPoints.end());
 
         if(allMapPoints.empty())
@@ -159,7 +195,7 @@ extern "C" JNIEXPORT jlongArray Java_com_mag_slam3dvideo_orb3_OrbSlamProcessor_n
     auto *processor = reinterpret_cast<SLAMVideo::OrbSlamProcessor*>(ptr);
     if (processor == nullptr)
       return 0;
-    std::vector<cv::Mat*> res = processor->GetAllKeyFramePositions();
+    std::vector<cv::Mat*> res = processor->getAllKeyFramePositions();
     std::vector<long> matPtrs;
     matPtrs.reserve(res.size());
     for(auto matPtr:res){

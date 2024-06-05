@@ -75,18 +75,35 @@ data class OrbJsonStruct(
     val fps: Float,
     val measurements: Array<OrbFrameMeasurement>
 )
-
+/**
+ * The OrbMetricMeasurer class is responsible for tracking and measuring ORB_SLAM3
+ * frame processing metrics and dumping the results to a file.
+ */
 class OrbMetricMeasurer {
     private val frameMeasurements = ArrayList<OrbFrameMeasurement>()
     private var settings: OrbSlamSettings? = null
     private var videoFrameCount: Int = 0
     private var videoFps: Float = 0f
+
+    /**
+     * Tracks video information including ORB SLAM settings, frame count, and frames per second (FPS).
+     *
+     * @param orbSlamSettings The settings for ORB SLAM.
+     * @param frameCount The total number of video frames.
+     * @param fps The frames per second of the video.
+     */
+
     fun trackVideoInfo(orbSlamSettings: OrbSlamSettings, frameCount: Int, fps: Float) {
         settings = orbSlamSettings
         videoFrameCount = frameCount
         videoFps = fps
     }
 
+    /**
+     * Measures the time taken to process a frame and stores the result.
+     *
+     * @param action The action representing the frame processing which returns an OrbFrameResult.
+     */
     fun measureProcessFrame(action: () -> OrbFrameResult) {
         val (orbResult, elapsed) = measureTimedValue {
             val state = action()
@@ -95,6 +112,12 @@ class OrbMetricMeasurer {
         frameMeasurements.add(OrbFrameMeasurement(elapsed, orbResult.state))
     }
 
+    /**
+     * Dumps the collected frame measurements and video information to a specified file in JSON format.
+     *
+     * @param outFile The file where the JSON data should be written.
+     * @return `true` if the data was successfully written to the file, `false` otherwise.
+     */
     fun dumpToFile(outFile: File): Boolean {
         if (settings == null || frameMeasurements == null)
             return false

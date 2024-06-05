@@ -29,6 +29,7 @@ import com.google.android.filament.VertexBuffer
 import com.google.android.filament.View
 import com.google.android.filament.Viewport
 import com.google.android.filament.filamat.MaterialBuilder
+import com.mag.slam3dvideo.scenes.OrbScene
 import com.mag.slam3dvideo.utils.MathHelpers
 import com.mag.slam3dvideo.utils.TextureSurface
 import com.mag.slam3dvideo.utils.bitmap.BitmapAlignment
@@ -41,10 +42,21 @@ import org.opencv.imgproc.Imgproc.cvtColor
 import java.nio.ByteBuffer
 import java.nio.ByteOrder
 
+/**
+ * The VideoFrameListener interface defines a contract for classes that wish to be notified
+ * when a video frame is about to be drawn.
+ */
 interface VideoFrameListener
 {
     fun frameIsAboutToDraw(timestamp:Long);
 }
+
+/**
+ * The VideoScene class represents a scene for rendering video frames using the ORB-SLAM system.
+ *
+ * @param surfaceView The SurfaceView instance where the video frames will be rendered.
+ * @param bitmapSize  The size of the bitmap.
+ */
 class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF ) : OrbScene {
     companion object{
         const val TAG="VideoScene"
@@ -88,6 +100,13 @@ class VideoScene(private val surfaceView: SurfaceView, bitmapSize: SizeF ) : Orb
 
     init {
     }
+
+    /**
+     * Initializes texture to draw into
+     * Initializes scene,camera, quad mesh, shader that draws video quad
+     *
+     * @param e @see Engine
+     */
     override fun init(e: Engine) {
         tex = TextureSurface(bitmapSize.width.toInt(),bitmapSize.height.toInt(),Handler(Looper.myLooper()!!)) { buf, timestamp ->
             val newBuffer = Texture.PixelBufferDescriptor(buf, Texture.Format.RGBA, Texture.Type.UBYTE)

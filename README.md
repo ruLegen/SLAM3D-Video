@@ -2,6 +2,8 @@
 
 Mobile application to 3D track camera trajectory using SLAM.
 Recreated scene can be exported into glTF file and opened in more specialized software e.g. Blender
+In order to ORB_SLAM3 work properly, provide correct intrinsic camera parameters.
+There are plans to add autocalibration in the future
 
 ![Static Badge](https://img.shields.io/badge/SLAM3D-Video-green)
 
@@ -25,4 +27,22 @@ Scene recreation timelapse
 - openssl (1.0.2s)
 - [filament, filamat, filament-uitls](https://github.com/google/filament)
 - [JglTF](https://github.com/javagl/JglTF)
+
+## Build
+Regular Android studio project build
+
+## Blender import
+In order to properly import glTF scene in to blender some thing need to be done:
+- Before import glTF file, make sure that you've setup right scene framerate. (it must be equal to fps of original video)
+  
+  ![](doc/blender-scene-fps.png)
+- After import glTF file into blender
+- Setup scene. Select "cameraRoot" object, uncheck scale keyframes. Then open "Object proeprty" and on "Transform" tab set X scale to -1
+  ![](doc/blender_scene_setup.png)
+- Setup camera background
+  ![](doc/camera_setup.png)
+- View through camera
+  ![](doc/blender.png)
+- Change scene whatever you like
+  ![](doc/blender_new_obj.png)
 

@@ -1,6 +1,7 @@
 # SLAM3D-Video
 
-Mobile application to 3D track camera trajectory using SLAM. 
+Mobile application to 3D track camera trajectory using SLAM.
+Recreated scene can be exported into glTF file and opened in more specialized software e.g. Blender
 
 ![Static Badge](https://img.shields.io/badge/SLAM3D-Video-green)
 

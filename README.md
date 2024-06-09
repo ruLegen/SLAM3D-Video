@@ -1,6 +1,6 @@
 # SLAM3D-Video
 
-Mobile application to 3D track camera trajectory using SLAM.
+Mobile application to 3D track camera trajectory using SLAM. As SLAM implementation ORB_SLAM3 is used.
 Recreated scene can be exported into glTF file and opened in more specialized software e.g. Blender
 In order to ORB_SLAM3 work properly, provide correct intrinsic camera parameters.
 There are plans to add autocalibration in the future

@@ -1,3 +1,10 @@
 <resources>
     <string name="app_name">SLAM3D-Video</string>
+    <string name="title_activity_settings">SettingsActivity</string>
+
+    <!-- Preference Titles -->
+    <string name="messages_header">Camera intrinsics</string>
+    <string name="focal_x">Focal length (fx)</string>
+    <string name="focal_y">Focal length (fy)</string>
+
 </resources>

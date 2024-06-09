@@ -4,6 +4,7 @@ import android.app.Application
 import android.content.Intent
 import android.view.View
 import com.mag.slam3dvideo.ui.MapViewActivity
+import com.mag.slam3dvideo.ui.SettingsActivity
 import com.mag.slam3dvideo.ui.components.VideoTimelineView
 
 class VideoViewerViewModel(application: Application) : ObservableViewModel(application) {
@@ -25,7 +26,13 @@ class VideoViewerViewModel(application: Application) : ObservableViewModel(appli
     fun clicked(view: View) {
         mediaSelectClicked?.invoke()
     }
+    fun settingsClicked(view: View) {
+        val appContext = getApplication<Application>()
+        val intent = Intent(appContext, SettingsActivity::class.java)
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 
+        appContext.startActivity(intent)
+    }
     fun nextClicked(view: View) {
         val appConext = getApplication<Application>()
         val intent = Intent(appConext, MapViewActivity::class.java)

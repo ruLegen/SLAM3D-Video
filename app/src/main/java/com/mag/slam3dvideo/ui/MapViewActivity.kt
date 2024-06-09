@@ -48,6 +48,7 @@ import com.mag.slam3dvideo.utils.OrbFrameInfoHolder
 import com.mag.slam3dvideo.utils.OrbFrameResult
 import com.mag.slam3dvideo.utils.OrbSlamSettings
 import com.mag.slam3dvideo.utils.OrbMetricMeasurer
+import com.mag.slam3dvideo.utils.PreferenceHelper
 import com.mag.slam3dvideo.utils.TaskRunner
 import com.mag.slam3dvideo.utils.video.SpeedControlCallback
 import com.mag.slam3dvideo.utils.video.VideoDecoder
@@ -377,9 +378,13 @@ class MapViewActivity : AppCompatActivity() {
 
         setInfoText("Initializing OrbSlamProcessor")
         val orbAssets = AssetUtils.getOrbFileAssets(this)
-        val orbSettings = settings[6]
+        val orbSettings = PreferenceHelper(this).getOrbSlamSettings()
+//        orbSettings.fps = videoRetriever?.capturedFps?.toInt() ?: orbSettings.fps
+
+
         orbProcessor = OrbSlamProcessor(orbAssets.vocabFile, orbSettings)
         videoRetriever!!.initialize()
+
 
         setupScenes()
         decoderSpeedControlCallback = SpeedControlCallback(object : VideoPlaybackCallback {

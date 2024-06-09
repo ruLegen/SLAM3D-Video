@@ -22,11 +22,14 @@
         android:theme="@style/Theme.SLAM3DVideo"
         tools:targetApi="31">
         <activity
+            android:name=".ui.SettingsActivity"
+            android:exported="false"
+            android:label="@string/title_activity_settings" />
+        <activity
             android:name=".ui.DebugActivity"
             android:exported="true"
             android:screenOrientation="userLandscape"
             android:theme="@style/Theme.SLAM3DVideo.NoActionBar" />
-
         <activity
             android:name=".ui.CodecActivity"
             android:exported="true"

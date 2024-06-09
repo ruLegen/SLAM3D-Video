@@ -1,0 +1,156 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto">
+
+    <PreferenceCategory android:title="ORB_SLAM3 Settings">
+
+        <EditTextPreference
+            android:defaultValue="1364.21109"
+            android:inputType="numberDecimal"
+            android:key="camera1_fx"
+
+            android:title="Camera1 fx"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:defaultValue="1350.67390"
+            android:inputType="numberDecimal"
+            android:key="camera1_fy"
+            android:title="Camera1 fy"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:defaultValue="960.52704"
+            android:inputType="numberDecimal"
+            android:key="camera1_cx"
+            android:title="Camera1 cx"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:defaultValue="523.65354"
+            android:inputType="numberDecimal"
+            android:key="camera1_cy"
+            android:title="Camera1 cy"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:defaultValue="0.16906"
+            android:inputType="numberDecimal"
+            android:key="camera1_k1"
+            android:title="Camera1 k1"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:defaultValue="-0.84008"
+            android:inputType="numberDecimal"
+            android:key="camera1_k2"
+            android:title="Camera1 k2"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:defaultValue="-0.00582"
+            android:inputType="numberDecimal"
+            android:key="camera1_p1"
+            android:title="Camera1 p1"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:defaultValue="0.00179"
+            android:inputType="numberDecimal"
+            android:key="camera1_p2"
+            android:title="Camera1 p2"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:defaultValue="30"
+            android:inputType="number"
+            android:key="camera_fps"
+            android:title="Camera FPS"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:defaultValue="1920"
+            android:inputType="number"
+            android:key="camera_width"
+            android:title="Camera Width"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:defaultValue="1080"
+            android:inputType="number"
+            android:key="camera_height"
+            android:title="Camera Height"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:defaultValue="1920"
+            android:inputType="number"
+            android:key="camera_new_width"
+            android:title="Camera New Width"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:defaultValue="1080"
+            android:inputType="number"
+            android:key="camera_new_height"
+            android:title="Camera New Height"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:defaultValue="1.0"
+            android:inputType="numberDecimal"
+            android:key="camera_image_scale"
+            android:title="Camera Image Scale"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:defaultValue="2000"
+            android:inputType="number"
+            android:key="orbextractor_n_features"
+            android:title="ORB Extractor nFeatures"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:defaultValue="1.2"
+            android:inputType="numberDecimal"
+            android:key="orbextractor_scale_factor"
+            android:title="ORB Extractor Scale Factor"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:defaultValue="8"
+            android:inputType="number"
+            android:key="orbextractor_n_levels"
+            android:title="ORB Extractor nLevels"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:defaultValue="20"
+            android:inputType="number"
+            android:key="orbextractor_ini_th_fast"
+            android:title="ORB Extractor iniThFAST"
+            app:useSimpleSummaryProvider="true" />
+
+        <EditTextPreference
+            android:defaultValue="7"
+            android:inputType="number"
+            android:key="orbextractor_min_th_fast"
+            android:title="ORB Extractor minThFAST"
+            app:useSimpleSummaryProvider="true" />
+
+    </PreferenceCategory>
+    <PreferenceCategory android:title="Import/Reset">
+        <Preference
+            app:key="import_btn"
+            app:summary="Press to reset settings to default"
+            app:title="Import settings from file" />
+        <Preference
+            app:key="export_btn"
+            app:summary="Press to reset settings to default"
+            app:title="Export settings from file" />
+        <Preference
+            app:key="reset_btn"
+            app:summary="Press to reset settings to default"
+            app:title="Reset to defaults" />
+    </PreferenceCategory>
+</PreferenceScreen>

@@ -4,7 +4,17 @@ Mobile application to 3D track camera trajectory using SLAM.
 
 ![Static Badge](https://img.shields.io/badge/SLAM3D-Video-green)
 
-[![awd](doc/video_scene_sidebyside.mp4)
+## Showcase
+### Object insertion 
+Left side is original + reprojected
+
+Right side is recreated scene
+
+[![](https://markdown-videos-api.jorgenkh.no/youtube/BLMy3-ozH8A)](https://youtu.be/BLMy3-ozH8A)
+
+Scene recreation timelapse 
+
+[![](https://markdown-videos-api.jorgenkh.no/youtube/WwGVIZ9ejeo)](https://youtu.be/WwGVIZ9ejeo)
 
 
 ## Dependencies

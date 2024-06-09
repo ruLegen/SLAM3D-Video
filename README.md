@@ -38,11 +38,15 @@ In order to properly import glTF scene in to blender some thing need to be done:
   ![](doc/blender-scene-fps.png)
 - After import glTF file into blender
 - Setup scene. Select "cameraRoot" object, uncheck scale keyframes. Then open "Object proeprty" and on "Transform" tab set X scale to -1
+  
   ![](doc/blender_scene_setup.png)
 - Setup camera background
+
   ![](doc/camera_setup.png)
 - View through camera
+  
   ![](doc/blender.png)
 - Change scene whatever you like
+  
   ![](doc/blender_new_obj.png)
 

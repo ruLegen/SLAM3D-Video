@@ -29,7 +29,7 @@ Scene recreation timelapse
 - [JglTF](https://github.com/javagl/JglTF)
 
 ## Build
-Regular Android studio project build
+Regular Android studio project build (CMAKE required)
 
 ## Blender import
 In order to properly import glTF scene in to blender some thing need to be done:

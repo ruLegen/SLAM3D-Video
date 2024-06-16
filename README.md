@@ -15,10 +15,13 @@ Right side is recreated scene
 
 [![](https://markdown-videos-api.jorgenkh.no/youtube/BLMy3-ozH8A)](https://youtu.be/BLMy3-ozH8A)
 
-Scene recreation timelapse 
+### Scene recreation timelapse 
 
 [![](https://markdown-videos-api.jorgenkh.no/youtube/WwGVIZ9ejeo)](https://youtu.be/WwGVIZ9ejeo)
 
+### Scene processing in Blender.
+
+[![](https://markdown-videos-api.jorgenkh.no/youtube/SN9_KT1WTCs)](https://youtu.be/SN9_KT1WTCs)
 
 ## Dependencies
 - [ORB_SLAM3](https://github.com/UZ-SLAMLab/ORB_SLAM3/)
